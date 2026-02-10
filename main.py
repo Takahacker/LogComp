@@ -1,4 +1,6 @@
-entrada = input("Digite Operação: ")
+import sys
+
+entrada = sys.argv[1]
 
 soma = 0
 num = ""
@@ -7,8 +9,7 @@ entrada = entrada.strip()
 
 
 if entrada == "" or entrada[0] in "+-":
-    print("Exception")
-    exit()
+    raise Exception()
 
 for char in entrada:
     if char == " ":
@@ -19,8 +20,7 @@ for char in entrada:
 
     elif char in "+-":
         if num == "":
-            print("Exception")
-            exit()
+            raise Exception()
 
         if operacao == "+":
             soma += int(num)
@@ -31,12 +31,10 @@ for char in entrada:
         num = ""
 
     else:
-        print("Exception")
-        exit()
+        raise Exception()
 
 if num == "":
-    print("Exception")
-    exit()
+    raise Exception()
 
 if operacao == "+":
     soma += int(num)
