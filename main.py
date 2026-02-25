@@ -27,7 +27,7 @@ class Lexer:
                 num += self.source[self.position]
                 self.position += 1
             self.next = Token()
-            self.next.type = "Número"
+            self.next.type = "Number"
             self.next.value = int(num)
     
         elif char == '+':
@@ -48,8 +48,11 @@ class Parser:
     def parse_expression() -> int:
         Resultado = 0
         # condição inicial
-        if Parser.lexer.next.type != "Número":
-            raise Exception("[Parser] Primeiro token deve ser um número")
+        while Parser.lexer.position < len(Parser.lexer.source) and Parser.lexer.source[Parser.lexer.position].isspace():
+            Parser.lexer.position += 1
+
+        if Parser.lexer.next.type != "Number":
+            raise Exception("[Parser] Primeiro token deve ser um Number")
         else:
             Resultado = Parser.lexer.next.value
             Parser.lexer.select_next()
@@ -58,14 +61,14 @@ class Parser:
         while Parser.lexer.next.type != "EOF":
             if Parser.lexer.next.type == "PLUS":
                 Parser.lexer.select_next()
-                if Parser.lexer.next.type != "Número":
-                    raise Exception("[Parser] Token após '+' deve ser um número")
+                if Parser.lexer.next.type != "Number":
+                    raise Exception("[Parser] Token após '+' deve ser um Number")
                 Resultado += Parser.lexer.next.value
                 Parser.lexer.select_next()
             elif Parser.lexer.next.type == "MINUS":
                 Parser.lexer.select_next()
-                if Parser.lexer.next.type != "Número":
-                    raise Exception("[Parser] Token após '-' deve ser um número")
+                if Parser.lexer.next.type != "Number":
+                    raise Exception("[Parser] Token após '-' deve ser um Number")
                 Resultado -= Parser.lexer.next.value
                 Parser.lexer.select_next()
             else:
