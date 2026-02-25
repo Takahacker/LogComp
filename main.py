@@ -5,6 +5,7 @@ class Token:
         self.type = ""
         self.value = 0
 
+
 class Lexer:
     def __init__(self):
         self.source = ""
@@ -12,9 +13,11 @@ class Lexer:
         self.next = Token()
 
     def select_next(self):
+        # Ignora espaços
         while self.position < len(self.source) and self.source[self.position].isspace():
             self.position += 1
 
+        # Fim da entrada
         if self.position >= len(self.source):
             self.next = Token()
             self.next.type = "EOF"
@@ -22,6 +25,7 @@ class Lexer:
 
         char = self.source[self.position]
 
+        # Número inteiro
         if char.isdigit():
             num = ""
             while self.position < len(self.source) and self.source[self.position].isdigit():
@@ -32,20 +36,24 @@ class Lexer:
             self.next.value = int(num)
             return
 
+        # Operador +
         elif char == '+':
             self.next = Token()
             self.next.type = "PLUS"
             self.position += 1
             return
 
+        # Operador -
         elif char == '-':
             self.next = Token()
             self.next.type = "MINUS"
             self.position += 1
             return
 
+        # Caractere inválido
         else:
-            raise Exception(f"[Lexer] Caractere inválido: {char}")
+            raise Exception()
+
 
 class Parser:
     lexer = Lexer()
@@ -53,49 +61,52 @@ class Parser:
     @staticmethod
     def parse_expression() -> int:
         if Parser.lexer.next.type != "Number":
-            raise Exception("[Parser] Primeiro token deve ser um Number")
+            raise Exception()
 
-        Resultado = Parser.lexer.next.value
+        result = Parser.lexer.next.value
         Parser.lexer.select_next()
 
-        # Loop para processar os tokens restantes até o EOF
         while Parser.lexer.next.type != "EOF":
             if Parser.lexer.next.type == "PLUS":
                 Parser.lexer.select_next()
                 if Parser.lexer.next.type != "Number":
-                    raise Exception("[Parser] Token após '+' deve ser um Number")
-                Resultado += Parser.lexer.next.value
+                    raise Exception()
+                result += Parser.lexer.next.value
                 Parser.lexer.select_next()
+
             elif Parser.lexer.next.type == "MINUS":
                 Parser.lexer.select_next()
                 if Parser.lexer.next.type != "Number":
-                    raise Exception("[Parser] Token após '-' deve ser um Number")
-                Resultado -= Parser.lexer.next.value
+                    raise Exception()
+                result -= Parser.lexer.next.value
                 Parser.lexer.select_next()
+
             else:
-                raise Exception("[Parser] Token inválido")
-        return Resultado
-    
+                raise Exception()
+
+        return result
 
     @staticmethod
     def run() -> int:
         Parser.lexer = Lexer()
         Parser.lexer.source = sys.stdin.read()
         Parser.lexer.select_next()
-        result = Parser.parse_expression()
-        if Parser.lexer.next.type != "EOF":
-            raise Exception("[Parser] Tokens não consumidos completamente")
-        return result
 
+        result = Parser.parse_expression()
+
+        if Parser.lexer.next.type != "EOF":
+            raise Exception()
+
+        return result
 
 
 def main():
     try:
         result = Parser.run()
         print(result)
-    except Exception as e:
-        print(str(e))
+    except Exception:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
