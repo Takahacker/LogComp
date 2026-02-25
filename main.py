@@ -36,7 +36,6 @@ class Lexer:
             self.next = Token("MINUS")
             self.position += 1
             return
-
         if char == '^':
             self.next = Token("XOR")
             self.position += 1
@@ -67,10 +66,10 @@ class Parser:
 
             if operador == "PLUS":
                 resultado += Parser.lexer.next.value
-            elif operador == "MINUS":
-                resultado -= Parser.lexer.next.value
             elif operador == "XOR":
                 resultado ^= Parser.lexer.next.value
+            else:
+                resultado -= Parser.lexer.next.value
 
             Parser.lexer.selectNext()
 
@@ -86,10 +85,11 @@ class Parser:
 
         resultado = Parser.parseExpression()
 
-        # Proíbe número seguido diretamente de número (sem operador)
+    
         if Parser.lexer.next.type == "INT":
             raise Exception("Número seguido diretamente de outro número (falta operador)")
 
+       
         if Parser.lexer.next.type != "EOF":
             raise Exception("Caracteres extras após o fim da expressão")
 
