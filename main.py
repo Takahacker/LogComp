@@ -7,10 +7,10 @@ class Token:
 
 
 class Lexer:
-    def __init__(self):
-        self.source = ""
+    def __init__(self, source):
+        self.source = source
         self.position = 0
-        self.next = Token()
+        self.next = None
 
     def select_next(self):
         while self.position < len(self.source) and self.source[self.position].isspace():
@@ -50,9 +50,8 @@ class Lexer:
 
 
 class Parser:
-    lexer = Lexer()
-
-    @staticmethod
+    lexer = None
+    
     def parse_expression():
         if Parser.lexer.next.type != "Number":
             raise Exception("[Parser] Primeiro token deve ser um Number")
@@ -80,10 +79,8 @@ class Parser:
 
         return result
 
-    @staticmethod
-    def run():
-        Parser.lexer = Lexer()
-        Parser.lexer.source = sys.stdin.read().strip()  # <- importante
+    def run(code):
+        Parser.lexer = Lexer(code)  
         Parser.lexer.select_next()
 
         result = Parser.parse_expression()
@@ -96,7 +93,8 @@ class Parser:
 
 def main():
     try:
-        result = Parser.run()
+        code = sys.argv[1]
+        result = Parser.run(code)
         print(result)
     except Exception as e:
         print(str(e))
