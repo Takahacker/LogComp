@@ -1,7 +1,7 @@
 import sys
 
 class Token:
-    def __int__(self):
+    def __init__(self):
         self.type = ""
         self.value = 0
 
@@ -43,41 +43,42 @@ class Lexer:
             raise Exception(f"Caractere inválido: {char}")
 
 class Parser:
-    lexer = Lexer()
+    def __init__(self):
+        self.lexer = Lexer()
 
-    def parse_expression(self) -> int:
+    def parse_expression(lexer) -> int:
         Resultado = 0
         # condição inicial
-        if self.lexer.next.type != "Número":
+        if lexer.next.type != "Número":
             raise Exception("Primeiro token deve ser um número")
         else:
-            Resultado = self.lexer.next.value
-            self.lexer.select_next()
+            Resultado = lexer.next.value
+            lexer.select_next()
 
         # Loop para processar os tokens restantes até o EOF
-        while self.lexer.next.type != "EOF":
-            if self.lexer.next.type == "PLUS":
-                self.lexer.select_next()
-                if self.lexer.next.type != "Número":
+        while lexer.next.type != "EOF":
+            if lexer.next.type == "PLUS":
+                lexer.select_next()
+                if lexer.next.type != "Número":
                     raise Exception("Token após '+' deve ser um número")
-                Resultado += self.lexer.next.value
-                self.lexer.select_next()
-            elif self.lexer.next.type == "MINUS":
-                self.lexer.select_next()
-                if self.lexer.next.type != "Número":
+                Resultado += lexer.next.value
+                lexer.select_next()
+            elif lexer.next.type == "MINUS":
+                lexer.select_next()
+                if lexer.next.type != "Número":
                     raise Exception("Token após '-' deve ser um número")
-                Resultado -= self.lexer.next.value
-                self.lexer.select_next()
+                Resultado -= lexer.next.value
+                lexer.select_next()
             else:
                 raise Exception("Token inválido")
         return Resultado
     
 
-    def run(self, code: str) -> int:
+    def run(self) -> int:
         self.lexer = Lexer()
-        self.lexer.source = code
+        self.lexer.source = sys.stdin.read()
         self.lexer.select_next()
-        result = self.parse_expression()
+        result = Parser.parse_expression(self.lexer)
         if self.lexer.next.type != "EOF":
             raise Exception("Tokens não consumidos completamente")
         return result
@@ -86,8 +87,5 @@ class Parser:
 
 def main():
     parser = Parser()
-    result = parser.run(sys.stdin.read())
-    print(result)
-
-if __name__ == "__main__":
-    main()        
+    result = parser.run()
+    print(result)  
