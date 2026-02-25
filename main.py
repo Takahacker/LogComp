@@ -43,9 +43,12 @@ class Lexer:
             raise Exception(f"Caractere inválido: {char}")
 
 class Parser:
-    def __init__(self):
-        self.lexer = Lexer()
+    lexer = Lexer()
 
+    def __init__(self):
+        pass
+
+    @staticmethod
     def parse_expression(lexer) -> int:
         Resultado = 0
         # condição inicial
@@ -75,11 +78,11 @@ class Parser:
     
 
     def run(self) -> int:
-        self.lexer = Lexer()
-        self.lexer.source = sys.stdin.read()
-        self.lexer.select_next()
-        result = Parser.parse_expression(self.lexer)
-        if self.lexer.next.type != "EOF":
+        Parser.lexer = Lexer()
+        Parser.lexer.source = sys.stdin.read()
+        Parser.lexer.select_next()
+        result = Parser.parse_expression(Parser.lexer)
+        if Parser.lexer.next.type != "EOF":
             raise Exception("Tokens não consumidos completamente")
         return result
 
@@ -89,3 +92,7 @@ def main():
     parser = Parser()
     result = parser.run()
     print(result)  
+
+
+if __name__ == "__main__":
+    main()
