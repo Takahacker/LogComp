@@ -1,50 +1,93 @@
 import sys
 
-entrada = sys.argv[1]
+class Token:
+    def __int__(self):
+        self.type = ""
+        self.value = 0
 
-soma = 0
-num = ""
-operacao = "+"
-pode_continuar_numero = False
-entrada = entrada.strip()
+class Lexer:
+    def __init__(self):
+        self.source = ""
+        self.position = 0
+        self.next = Token()
 
-
-if entrada == "" or entrada[0] in "+-":
-    raise Exception()
-
-for char in entrada:
-    if char == " ":
-        pode_continuar_numero = False
-        continue
-
-    if char.isdigit():
-        if not pode_continuar_numero and num != "":
-            raise Exception()
-        num += char
-        pode_continuar_numero = True
-
-    elif char in "+-":
-        if num == "":
-            raise Exception()
-
-        if operacao == "+":
-            soma += int(num)
+    def select_next(self):
+        while self.position < len(self.source) and self.source[self.position].isspace():
+            self.position += 1
+    
+        if self.position >= len(self.source):
+            self.next = Token()
+            self.next.type = "EOF"
+            return
+        
+        char = self.source[self.position]
+        
+        if char.isdigit():
+            num = ""
+            while self.position < len(self.source) and self.source[self.position].isdigit():
+                num += self.source[self.position]
+                self.position += 1
+            self.next = Token()
+            self.next.type = "Número"
+            self.next.value = int(num)
+    
+        elif char == '+':
+            self.next = Token()
+            self.next.type = "PLUS"
+            self.position += 1
+        elif char == '-':
+            self.next = Token()
+            self.next.type = "MINUS"
+            self.position += 1
         else:
-            soma -= int(num)
+            raise Exception(f"Caractere inválido: {char}")
 
-        operacao = char
-        num = ""
-        pode_continuar_numero = False
+class Parser:
+    lexer = Lexer()
 
-    else:
-        raise Exception()
+    def parse_expression(self) -> int:
+        Resultado = 0
+        # condição inicial
+        if self.lexer.next.type != "Número":
+            raise Exception("Primeiro token deve ser um número")
+        else:
+            Resultado = self.lexer.next.value
+            self.lexer.select_next()
 
-if num == "":
-    raise Exception()
+        # Loop para processar os tokens restantes até o EOF
+        while self.lexer.next.type != "EOF":
+            if self.lexer.next.type == "PLUS":
+                self.lexer.select_next()
+                if self.lexer.next.type != "Número":
+                    raise Exception("Token após '+' deve ser um número")
+                Resultado += self.lexer.next.value
+                self.lexer.select_next()
+            elif self.lexer.next.type == "MINUS":
+                self.lexer.select_next()
+                if self.lexer.next.type != "Número":
+                    raise Exception("Token após '-' deve ser um número")
+                Resultado -= self.lexer.next.value
+                self.lexer.select_next()
+            else:
+                raise Exception("Token inválido")
+        return Resultado
+    
 
-if operacao == "+":
-    soma += int(num)
-else:
-    soma -= int(num)
+    def run(self, code: str) -> int:
+        self.lexer = Lexer()
+        self.lexer.source = code
+        self.lexer.select_next()
+        result = self.parse_expression()
+        if self.lexer.next.type != "EOF":
+            raise Exception("Tokens não consumidos completamente")
+        return result
 
-print(soma)
+
+
+def main():
+    parser = Parser()
+    result = parser.run(sys.stdin.read())
+    print(result)
+
+if __name__ == "__main__":
+    main()        
