@@ -19,7 +19,6 @@ class Lexer:
             self.next = Token()
             self.next.type = "EOF"
             return
-        
         char = self.source[self.position]
         
         if char.isdigit():
@@ -40,16 +39,17 @@ class Lexer:
             self.next.type = "MINUS"
             self.position += 1
         else:
-            raise Exception(f"Caractere inválido: {char}")
+            raise Exception(f"[Lexer] Caractere inválido: {char}")
 
 class Parser:
     lexer = Lexer()
 
+    @staticmethod
     def parse_expression() -> int:
         Resultado = 0
         # condição inicial
         if Parser.lexer.next.type != "Número":
-            raise Exception("Primeiro token deve ser um número")
+            raise Exception("[Parser] Primeiro token deve ser um número")
         else:
             Resultado = Parser.lexer.next.value
             Parser.lexer.select_next()
@@ -59,17 +59,17 @@ class Parser:
             if Parser.lexer.next.type == "PLUS":
                 Parser.lexer.select_next()
                 if Parser.lexer.next.type != "Número":
-                    raise Exception("Token após '+' deve ser um número")
+                    raise Exception("[Parser] Token após '+' deve ser um número")
                 Resultado += Parser.lexer.next.value
                 Parser.lexer.select_next()
             elif Parser.lexer.next.type == "MINUS":
                 Parser.lexer.select_next()
                 if Parser.lexer.next.type != "Número":
-                    raise Exception("Token após '-' deve ser um número")
+                    raise Exception("[Parser] Token após '-' deve ser um número")
                 Resultado -= Parser.lexer.next.value
                 Parser.lexer.select_next()
             else:
-                raise Exception("Token inválido")
+                raise Exception("[Parser] Token inválido")
         return Resultado
     
 
@@ -80,14 +80,17 @@ class Parser:
         Parser.lexer.select_next()
         result = Parser.parse_expression()
         if Parser.lexer.next.type != "EOF":
-            raise Exception("Tokens não consumidos completamente")
+            raise Exception("[Parser] Tokens não consumidos completamente")
         return result
 
 
 
 def main():
-    result = Parser.run()
-    print(result)  
+    try:
+        result = Parser.run()
+        print(result)
+    except Exception as e:
+        print(str(e))  
 
 
 if __name__ == "__main__":
