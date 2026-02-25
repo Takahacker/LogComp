@@ -3,6 +3,7 @@ class Token:
         self.type = type
         self.value = value
 
+
 class Lexer:
     def __init__(self, source):
         self.source = source
@@ -36,12 +37,14 @@ class Lexer:
             self.next = Token("MINUS")
             self.position += 1
             return
+
         if char == '^':
             self.next = Token("XOR")
             self.position += 1
             return
 
-        raise Exception(f"Caractere inválido: '{char}' na posição {self.position}")
+        raise Exception(f"[Lexer] Caractere inválido: '{char}' na posição {self.position}")
+
 
 class Parser:
     lexer = None
@@ -49,10 +52,10 @@ class Parser:
     @staticmethod
     def parseExpression():
         if Parser.lexer is None:
-            raise Exception("Lexer não inicializado")
+            raise Exception("[Parser] Lexer não inicializado")
 
         if Parser.lexer.next.type != "INT":
-            raise Exception("Esperado um número inteiro no início da expressão")
+            raise Exception("[Parser] Esperado um número inteiro no início da expressão")
 
         resultado = Parser.lexer.next.value
         Parser.lexer.selectNext()
@@ -62,7 +65,7 @@ class Parser:
             Parser.lexer.selectNext()
 
             if Parser.lexer.next.type != "INT":
-                raise Exception("Esperado um número inteiro após o operador")
+                raise Exception("[Parser] Esperado um número inteiro após o operador")
 
             if operador == "PLUS":
                 resultado += Parser.lexer.next.value
@@ -85,25 +88,25 @@ class Parser:
 
         resultado = Parser.parseExpression()
 
-    
         if Parser.lexer.next.type == "INT":
-            raise Exception("Número seguido diretamente de outro número (falta operador)")
+            raise Exception("[Parser] Número seguido diretamente de outro número")
 
-       
         if Parser.lexer.next.type != "EOF":
-            raise Exception("Caracteres extras após o fim da expressão")
+            raise Exception("[Parser] Caracteres extras após o fim da expressão")
 
         return resultado
 
+
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) != 2:
-        print('Uso: python main.py "expressão"')
+        print("Uso: python main.py \"expressão\"")
         sys.exit(1)
 
     try:
         resultado = Parser.run(sys.argv[1])
         print(resultado)
     except Exception as e:
-        print("Erro:", str(e))
+        print(str(e))
         sys.exit(1)
