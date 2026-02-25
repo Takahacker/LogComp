@@ -14,13 +14,14 @@ class Lexer:
     def select_next(self):
         while self.position < len(self.source) and self.source[self.position].isspace():
             self.position += 1
-    
+
         if self.position >= len(self.source):
             self.next = Token()
             self.next.type = "EOF"
             return
+
         char = self.source[self.position]
-        
+
         if char.isdigit():
             num = ""
             while self.position < len(self.source) and self.source[self.position].isdigit():
@@ -29,15 +30,20 @@ class Lexer:
             self.next = Token()
             self.next.type = "Number"
             self.next.value = int(num)
-    
+            return
+
         elif char == '+':
             self.next = Token()
             self.next.type = "PLUS"
             self.position += 1
+            return
+
         elif char == '-':
             self.next = Token()
             self.next.type = "MINUS"
             self.position += 1
+            return
+
         else:
             raise Exception(f"[Lexer] Caractere inválido: {char}")
 
