@@ -94,8 +94,8 @@ def main():
         result = Parser.run()
         print(result)
     except Exception as e:
-        print(str(e))  
-
+        print(str(e))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
