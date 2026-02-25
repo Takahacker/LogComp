@@ -46,16 +46,11 @@ class Parser:
 
     @staticmethod
     def parse_expression() -> int:
-        Resultado = 0
-        # condição inicial
-        while Parser.lexer.position < len(Parser.lexer.source) and Parser.lexer.source[Parser.lexer.position].isspace():
-            Parser.lexer.position += 1
-
         if Parser.lexer.next.type != "Number":
             raise Exception("[Parser] Primeiro token deve ser um Number")
-        else:
-            Resultado = Parser.lexer.next.value
-            Parser.lexer.select_next()
+
+        Resultado = Parser.lexer.next.value
+        Parser.lexer.select_next()
 
         # Loop para processar os tokens restantes até o EOF
         while Parser.lexer.next.type != "EOF":
