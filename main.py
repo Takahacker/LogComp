@@ -37,6 +37,11 @@ class Lexer:
             self.position += 1
             return
 
+        if char == '^':
+            self.next = Token("XOR")
+            self.position += 1
+            return
+
         raise Exception(f"Caractere inválido: '{char}' na posição {self.position}")
 
 class Parser:
@@ -53,7 +58,7 @@ class Parser:
         resultado = Parser.lexer.next.value
         Parser.lexer.selectNext()
 
-        while Parser.lexer.next.type in ("PLUS", "MINUS"):
+        while Parser.lexer.next.type in ("PLUS", "MINUS", "XOR"):
             operador = Parser.lexer.next.type
             Parser.lexer.selectNext()
 
@@ -62,8 +67,10 @@ class Parser:
 
             if operador == "PLUS":
                 resultado += Parser.lexer.next.value
-            else:
+            elif operador == "MINUS":
                 resultado -= Parser.lexer.next.value
+            elif operador == "XOR":
+                resultado ^= Parser.lexer.next.value
 
             Parser.lexer.selectNext()
 
@@ -83,7 +90,6 @@ class Parser:
         if Parser.lexer.next.type == "INT":
             raise Exception("Número seguido diretamente de outro número (falta operador)")
 
-        # Se chegou aqui e não é EOF → outros caracteres inválidos
         if Parser.lexer.next.type != "EOF":
             raise Exception("Caracteres extras após o fim da expressão")
 
