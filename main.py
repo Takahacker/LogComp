@@ -17,17 +17,14 @@ class Lexer:
         if self.position >= len(self.source):
             self.next = Token("EOF")
             return
-
+        
         char = self.source[self.position]
 
         if char.isdigit():
-            num_str = ""
-            while self.position < len(self.source) and self.source[self.position].isdigit():
-                num_str += self.source[self.position]
-                self.position += 1
-            self.next = Token("INT", int(num_str))
+            self.next = Token("INT", int(char))
+            self.position += 1
             return
-
+        
         if char == '+':
             self.next = Token("PLUS")
             self.position += 1
@@ -42,6 +39,26 @@ class Lexer:
             self.next = Token("XOR")
             self.position += 1
             return
+        
+        if char == '*':
+            self.next = Token("MULT")
+            self.position += 1
+            return
+        
+        if char == '/':
+            self.next = Token("DIV")
+            self.position += 1
+            return
+        
+        if char == '(':
+            self.next = Token("OPEN_PAR")
+            self.position += 1
+            return
+        
+        if char == ')':
+            self.next = Token("CLOSE_PAR")
+            self.position += 1
+            return
 
         raise Exception(f"[Lexer] Caractere inválido: '{char}' na posição {self.position}")
 
@@ -49,50 +66,82 @@ class Lexer:
 class Parser:
     lexer = None
 
-    @staticmethod
-    def parseExpression():
-        if Parser.lexer is None:
-            raise Exception("[Parser] Lexer não inicializado")
+    def parse_expression():
 
-        if Parser.lexer.next.type != "INT":
-            raise Exception("[Parser] Esperado um número inteiro no início da expressão")
-
-        resultado = Parser.lexer.next.value
-        Parser.lexer.selectNext()
+        res = Parser.parse_term()
 
         while Parser.lexer.next.type in ("PLUS", "MINUS", "XOR"):
-            operador = Parser.lexer.next.type
-            Parser.lexer.selectNext()
-
-            if Parser.lexer.next.type != "INT":
-                raise Exception("[Parser] Esperado um número inteiro após o operador")
-
-            if operador == "PLUS":
-                resultado += Parser.lexer.next.value
-            elif operador == "XOR":
-                resultado ^= Parser.lexer.next.value
+            if Parser.lexer.next.type == "PLUS":
+                Parser.lexer.selectNext()
+                res += Parser.parse_term()
+            elif Parser.lexer.next.type == "MINUS":
+                Parser.lexer.selectNext()
+                res -= Parser.parse_term()
+            elif Parser.lexer.next.type == "XOR":
+                Parser.lexer.selectNext()
+                res ^= Parser.parse_term()
             else:
-                resultado -= Parser.lexer.next.value
+                raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
+        
+        return res
 
+    def parse_term():
+        res = Parser.parse_factor()
+
+        while Parser.lexer.next.type in ("MULT", "DIV"):
+            if Parser.lexer.next.type == "MULT":
+                Parser.lexer.selectNext()
+                res *= Parser.parse_factor()
+            elif Parser.lexer.next.type == "DIV":
+                Parser.lexer.selectNext()
+                divisor = Parser.parse_factor()
+                if divisor == 0:
+                    raise Exception("division by zero")
+                res //= divisor
+            else:                
+                raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
+        return res
+
+
+    def parse_factor():
+        if Parser.lexer.next.type == "INT":
+            res = Parser.lexer.next.value
             Parser.lexer.selectNext()
+            return res
 
-        return resultado
+        if Parser.lexer.next.type == "OPEN_PAR":
+            Parser.lexer.selectNext()
+            res = Parser.parse_expression()
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Parêntese de fechamento esperado")
+            Parser.lexer.selectNext()
+            return res
 
-    @staticmethod
+        if Parser.lexer.next.type == "MINUS":
+            Parser.lexer.selectNext()
+            return -Parser.parse_factor()
+
+        if Parser.lexer.next.type == "PLUS":
+            Parser.lexer.selectNext()
+            return Parser.parse_factor()
+
+        
+
+        raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
+            
+
     def run(code):
         Parser.lexer = Lexer(code)
         Parser.lexer.selectNext()
 
         if Parser.lexer.next.type == "EOF":
-            return 0
+            raise Exception("[Parser] Expressão vazia")
 
-        resultado = Parser.parseExpression()
-
-        if Parser.lexer.next.type == "INT":
-            raise Exception("[Parser] Número seguido diretamente de outro número")
+        resultado = Parser.parse_expression()
 
         if Parser.lexer.next.type != "EOF":
-            raise Exception("[Parser] Caracteres extras após o fim da expressão")
+            raise Exception("[Parser] Token inesperado após o final da expressão")
+
 
         return resultado
 
