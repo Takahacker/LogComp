@@ -4,7 +4,7 @@
 
 This repository is monitored by Compiler Tester for automatic compilation status.
 
-![Diagrama Sintático](src/img/diagrama_sintatico2.jpg)
+![Diagrama Sintático](src/img/diagrama_sintatico2.png)
 
 ```ebnf
 EXPRESSION = TERM, { ("+" | "-"), TERM } ;
