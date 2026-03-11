@@ -91,7 +91,7 @@ class BinOp(Node):
             return left * right
         elif self.value == "DIV":
             if right == 0:
-                raise Exception("division by zero")
+                raise Exception("[Semantic] division by zero")
             return left // right
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
