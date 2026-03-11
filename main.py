@@ -62,6 +62,51 @@ class Lexer:
 
         raise Exception(f"[Lexer] Caractere inválido: '{char}' na posição {self.position}")
 
+class Node:
+    def __init__(self, value, children=[]):
+        self.value = value
+        self.children = children
+    def evaluate(self):
+        pass
+
+class IntVal(Node):
+    def __init__(self, value,children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        return self.value
+    
+class BinOp(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        left = self.children[0].evaluate()
+        right = self.children[1].evaluate()
+        if self.value == "PLUS":
+            return left + right
+        elif self.value == "MINUS":
+            return left - right
+        elif self.value == "XOR":
+            return left ^ right
+        elif self.value == "MULT":
+            return left * right
+        elif self.value == "DIV":
+            if right == 0:
+                raise Exception("division by zero")
+            return left // right
+        else:
+            raise Exception(f"Operador desconhecido: {self.value}")
+        
+class UnaOp(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        operand = self.children[0].evaluate()
+        if self.value == "PLUS":
+            return operand
+        elif self.value == "MINUS":
+            return -operand
+        else:
+            raise Exception(f"Operador desconhecido: {self.value}")
 
 class Parser:
     lexer = None
@@ -73,13 +118,10 @@ class Parser:
         while Parser.lexer.next.type in ("PLUS", "MINUS", "XOR"):
             if Parser.lexer.next.type == "PLUS":
                 Parser.lexer.select_next()
-                res += Parser.parse_term()
+                res = BinOp("PLUS", [res, Parser.parse_term()])
             elif Parser.lexer.next.type == "MINUS":
                 Parser.lexer.select_next()
-                res -= Parser.parse_term()
-            elif Parser.lexer.next.type == "XOR":
-                Parser.lexer.select_next()
-                res ^= Parser.parse_term()
+                res = BinOp("MINUS", [res, Parser.parse_term()])
             else:
                 raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
         
@@ -91,13 +133,10 @@ class Parser:
         while Parser.lexer.next.type in ("MULT", "DIV"):
             if Parser.lexer.next.type == "MULT":
                 Parser.lexer.select_next()
-                res *= Parser.parse_factor()
+                res = BinOp("MULT", [res, Parser.parse_factor()])
             elif Parser.lexer.next.type == "DIV":
                 Parser.lexer.select_next()
-                divisor = Parser.parse_factor()
-                if divisor == 0:
-                    raise Exception("division by zero")
-                res //= divisor
+                res = BinOp("DIV", [res, Parser.parse_factor()])
             else:                
                 raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
         return res
@@ -105,27 +144,26 @@ class Parser:
 
     def parse_factor():
         if Parser.lexer.next.type == "INT":
-            res = Parser.lexer.next.value
+            node = IntVal(Parser.lexer.next.value)
             Parser.lexer.select_next()
-            return res
+            return node
 
         if Parser.lexer.next.type == "OPEN_PAR":
             Parser.lexer.select_next()
-            res = Parser.parse_expression()
+            node = Parser.parse_expression()
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] Parêntese de fechamento esperado")
             Parser.lexer.select_next()
-            return res
+            return node
 
         if Parser.lexer.next.type == "MINUS":
             Parser.lexer.select_next()
-            return -Parser.parse_factor()
+            return UnaOp("MINUS", [Parser.parse_factor()])
 
         if Parser.lexer.next.type == "PLUS":
             Parser.lexer.select_next()
-            return Parser.parse_factor()
+            return UnaOp("PLUS", [Parser.parse_factor()])
 
-        
 
         raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
             
@@ -137,13 +175,13 @@ class Parser:
         if Parser.lexer.next.type == "EOF":
             raise Exception("[Parser] Expressão vazia")
 
-        resultado = Parser.parse_expression()
+        node_resultado = Parser.parse_expression()
 
         if Parser.lexer.next.type != "EOF":
             raise Exception("[Parser] Token inesperado após o final da expressão")
 
 
-        return resultado
+        return node_resultado
 
 
 if __name__ == "__main__":
@@ -154,8 +192,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        resultado = Parser.run(sys.argv[1])
-        print(resultado)
+        result = Parser.run(sys.argv[1]).evaluate()
+        print(result)
     except Exception as e:
         print(str(e))
-        sys.exit(1)
+        sys.exit(1) 
