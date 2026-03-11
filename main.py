@@ -96,7 +96,7 @@ class BinOp(Node):
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
         
-class UnaOp(Node):
+class UnOp(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
     def evaluate(self):
@@ -158,11 +158,11 @@ class Parser:
 
         if Parser.lexer.next.type == "MINUS":
             Parser.lexer.select_next()
-            return UnaOp("MINUS", [Parser.parse_factor()])
+            return UnOp("MINUS", [Parser.parse_factor()])
 
         if Parser.lexer.next.type == "PLUS":
             Parser.lexer.select_next()
-            return UnaOp("PLUS", [Parser.parse_factor()])
+            return UnOp("PLUS", [Parser.parse_factor()])
 
 
         raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
