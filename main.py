@@ -41,12 +41,8 @@ class Lexer:
             return
         
         if char == '*':
-            if self.position + 1 < len(self.source) and self.source[self.position + 1] == '*':
-                self.next = Token("POW")
-                self.position += 2
-            else:
-                self.next = Token("MULT")
-                self.position += 1
+            self.next = Token("MULT")
+            self.position += 1
             return
         
         if char == '/':
@@ -90,15 +86,15 @@ class Parser:
         return res
 
     def parse_term():
-        res = Parser.parse_unary()
+        res = Parser.parse_factor()
 
         while Parser.lexer.next.type in ("MULT", "DIV"):
             if Parser.lexer.next.type == "MULT":
                 Parser.lexer.select_next()
-                res *= Parser.parse_unary()
+                res *= Parser.parse_factor()
             elif Parser.lexer.next.type == "DIV":
                 Parser.lexer.select_next()
-                divisor = Parser.parse_unary()
+                divisor = Parser.parse_factor()
                 if divisor == 0:
                     raise Exception("division by zero")
                 res //= divisor
@@ -121,26 +117,18 @@ class Parser:
             Parser.lexer.select_next()
             return res
 
-        raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
-    
-    def parse_pow():
-        res = Parser.parse_factor()
-
-        while Parser.lexer.next.type == "POW":
-            Parser.lexer.select_next()
-            res **= Parser.parse_factor()
-        
-        return res
-
-    def parse_unary():
         if Parser.lexer.next.type == "MINUS":
             Parser.lexer.select_next()
-            return -Parser.parse_unary()
+            return -Parser.parse_factor()
+
         if Parser.lexer.next.type == "PLUS":
             Parser.lexer.select_next()
-            return Parser.parse_unary()
-        return Parser.parse_pow()
+            return Parser.parse_factor()
+
         
+
+        raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
+            
 
     def run(code):
         Parser.lexer = Lexer(code)
