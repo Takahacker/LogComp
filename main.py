@@ -1,10 +1,8 @@
 import re
 class PrePro:
-    def preprocess(self,source):
-   
-        self.source = re.sub(r'--.*', '\n', self.source)
- 
-        return self.source
+    def filter(self, source):
+        source = re.sub(r'--.*', '\n', source)
+        return source
 class Token:
     def __init__(self, type="", value=0):
         self.type = type
@@ -97,58 +95,64 @@ class Lexer:
 class SymbolTable:
     def __init__(self):
         self.table = {}
+    
+    def set_value(self, name, value):
+        self.table[name] = value
+    
+    def get_value(self, name):
+        if name not in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
+        return self.table[name]
 class Node:
-    def __init__(self, value, children=[], symbol_table=None):
+    def __init__(self, value, children=[]):
         self.value = value
         self.children = children
-        self.symbol_table = symbol_table
     def evaluate(self):
         pass
 
 class Block(Node):
-    def __init__(self, value, children =[], symbol_table=None):
-        super().__init__(value,children,symbol_table)
+    def __init__(self, value, children =[]):
+        super().__init__(value, children)
     def evaluate(self):
         for child in self.children:
             child.evaluate()
 
-class Assign(Node):
-    def __init__(self, value, children =[], symbol_table=None):
-        super().__init__(value,children,symbol_table)
+class Assignment(Node):
+    def __init__(self, value, children =[]):
+        super().__init__(value, children)
     def evaluate(self):
         var_name = self.children[0].value
         var_value = self.children[1].evaluate()
-        self.symbol_table.table[var_name] = var_value
+        Parser.symbol_table.set_value(var_name, var_value)
 
 class NoOp(Node):
-    def __init__(self, value, children =[], symbol_table=None):
-        super().__init__(value,children,symbol_table)
+    def __init__(self, value, children =[]):
+        super().__init__(value, children)
     def evaluate(self):        
         pass
-class Identifier(Node):
-    def __init__(self, value, children=[], symbol_table=None):
-        super().__init__(value, children, symbol_table)
+
+class Variable(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
     def evaluate(self):
-        if self.value not in self.symbol_table.table:
-            raise Exception(f"[Semantic] Variável '{self.value}' não definida")
-        return self.symbol_table.table[self.value]
+        return Parser.symbol_table.get_value(self.value)
 
 class Print(Node):
-    def __init__(self, value, children =[], symbol_table=None):
-        super().__init__(value,children,symbol_table)
+    def __init__(self, value, children =[]):
+        super().__init__(value, children)
     def evaluate(self):
         value = self.children[0].evaluate()
         print(value)
 
 class IntVal(Node):
-    def __init__(self, value,children=[], symbol_table=None):
-        super().__init__(value, children, symbol_table)
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
     def evaluate(self):
         return self.value
     
 class BinOp(Node):
-    def __init__(self, value, children=[], symbol_table=None):
-        super().__init__(value, children, symbol_table)
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
     def evaluate(self):
         left = self.children[0].evaluate()
         right = self.children[1].evaluate()
@@ -168,8 +172,8 @@ class BinOp(Node):
             raise Exception(f"Operador desconhecido: {self.value}")
         
 class UnOp(Node):
-    def __init__(self, value, children=[], symbol_table=None):
-        super().__init__(value, children, symbol_table)
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
     def evaluate(self):
         operand = self.children[0].evaluate()
         if self.value == "PLUS":
@@ -185,7 +189,7 @@ class Parser:
 
     def parse_program():
         Parser.symbol_table = SymbolTable()
-        block = Block("BLOCK", [], Parser.symbol_table)
+        block = Block("BLOCK", [])
         while Parser.lexer.next.type != "EOF":
             block.children.append(Parser.parse_statement())
         return block    
@@ -199,7 +203,7 @@ class Parser:
             if Parser.lexer.next.type != "ASSIGN":
                 raise Exception("[Parser] Operador de atribuição esperado")
             Parser.lexer.select_next()
-            return Assign("ASSIGN", [Identifier(var_name, [], Parser.symbol_table), Parser.parse_expression()], Parser.symbol_table)
+            return Assignment("ASSIGN", [Variable(var_name), Parser.parse_expression()])
 
         elif Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -210,7 +214,7 @@ class Parser:
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] Parêntese de fechamento esperado após expressão em 'print'")
             Parser.lexer.select_next()
-            return Print("PRINT", [expr_node], Parser.symbol_table)
+            return Print("PRINT", [expr_node])
         
         else:
             raise Exception(f"[Parser] Token inesperado no início da instrução: {Parser.lexer.next.type}")
@@ -222,10 +226,10 @@ class Parser:
         while Parser.lexer.next.type in ("PLUS", "MINUS", "XOR"):
             if Parser.lexer.next.type == "PLUS":
                 Parser.lexer.select_next()
-                res = BinOp("PLUS", [res, Parser.parse_term()], Parser.symbol_table)
+                res = BinOp("PLUS", [res, Parser.parse_term()])
             elif Parser.lexer.next.type == "MINUS":
                 Parser.lexer.select_next()
-                res = BinOp("MINUS", [res, Parser.parse_term()], Parser.symbol_table)
+                res = BinOp("MINUS", [res, Parser.parse_term()])
             else:
                 raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
         
@@ -237,10 +241,10 @@ class Parser:
         while Parser.lexer.next.type in ("MULT", "DIV"):
             if Parser.lexer.next.type == "MULT":
                 Parser.lexer.select_next()
-                res = BinOp("MULT", [res, Parser.parse_factor()], Parser.symbol_table)
+                res = BinOp("MULT", [res, Parser.parse_factor()])
             elif Parser.lexer.next.type == "DIV":
                 Parser.lexer.select_next()
-                res = BinOp("DIV", [res, Parser.parse_factor()], Parser.symbol_table)
+                res = BinOp("DIV", [res, Parser.parse_factor()])
             else:                
                 raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
         return res
@@ -248,12 +252,12 @@ class Parser:
 
     def parse_factor():
         if Parser.lexer.next.type == "IDEN":
-            node = Identifier(Parser.lexer.next.value, [], Parser.symbol_table)
+            node = Variable(Parser.lexer.next.value)
             Parser.lexer.select_next()
             return node
         
         if Parser.lexer.next.type == "INT":
-            node = IntVal(Parser.lexer.next.value, [], Parser.symbol_table)
+            node = IntVal(Parser.lexer.next.value)
             Parser.lexer.select_next()
             return node
 
@@ -267,11 +271,11 @@ class Parser:
 
         if Parser.lexer.next.type == "MINUS":
             Parser.lexer.select_next()
-            return UnOp("MINUS", [Parser.parse_factor()], Parser.symbol_table)
+            return UnOp("MINUS", [Parser.parse_factor()])
 
         if Parser.lexer.next.type == "PLUS":
             Parser.lexer.select_next()
-            return UnOp("PLUS", [Parser.parse_factor()], Parser.symbol_table)
+            return UnOp("PLUS", [Parser.parse_factor()])
 
 
         raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
@@ -288,7 +292,7 @@ if __name__ == "__main__":
         code = f.read()
     try:
         preprocessor = PrePro()
-        code = preprocessor.preprocess(code)
+        code = preprocessor.filter(code)
         ast = Parser.run(code)
         ast.evaluate()
     except Exception as e:
