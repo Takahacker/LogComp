@@ -285,7 +285,7 @@ class Parser:
         Parser.lexer.select_next()
         return Parser.parse_program()
 
-
+#a
 if __name__ == "__main__":
     with open("teste.lua", "r") as f:
         code = f.read()
