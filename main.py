@@ -1,6 +1,7 @@
 import re
 class PrePro:
-    def filter(self, source):
+    @staticmethod
+    def filter(source):
         source = re.sub(r'--.*', '\n', source)
         return source
 class Token:
@@ -131,11 +132,9 @@ class NoOp(Node):
     def evaluate(self):        
         pass
 
-class Variable(Node):
+class Identifier(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
-    def evaluate(self):
-        return Parser.symbol_table.get_value(self.value)
 
 class Print(Node):
     def __init__(self, value, children =[]):
@@ -203,7 +202,7 @@ class Parser:
             if Parser.lexer.next.type != "ASSIGN":
                 raise Exception("[Parser] Operador de atribuição esperado")
             Parser.lexer.select_next()
-            return Assignment("ASSIGN", [Variable(var_name), Parser.parse_expression()])
+            return Assignment("ASSIGN", [Identifier(var_name), Parser.parse_expression()])
 
         elif Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -252,7 +251,7 @@ class Parser:
 
     def parse_factor():
         if Parser.lexer.next.type == "IDEN":
-            node = Variable(Parser.lexer.next.value)
+            node = Identifier(Parser.lexer.next.value)
             Parser.lexer.select_next()
             return node
         
@@ -291,8 +290,7 @@ if __name__ == "__main__":
     with open("teste.lua", "r") as f:
         code = f.read()
     try:
-        preprocessor = PrePro()
-        code = preprocessor.filter(code)
+        code = PrePro.filter(code)
         ast = Parser.run(code)
         ast.evaluate()
     except Exception as e:
