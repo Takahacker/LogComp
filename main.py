@@ -1,4 +1,5 @@
 import re
+import sys
 class PrePro:
     @staticmethod
     def filter(source):
@@ -301,8 +302,14 @@ class Parser:
         return Parser.parse_program()
 
 if __name__ == "__main__":
-    with open("teste.lua", "r") as f:
-        code = f.read()
+    if len(sys.argv) > 1:
+        # Read from file
+        with open(sys.argv[1], "r") as f:
+            code = f.read()
+    else:
+        # Read from terminal input
+        code = input("Digite o código a ser interpretado (pressione Enter para finalizar):\n")
+    
     try:
         code = PrePro.filter(code)
         ast = Parser.run(code)
