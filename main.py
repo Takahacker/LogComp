@@ -135,9 +135,15 @@ class NoOp(Node):
 class Identifier(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+    def evaluate(self):
+        return Parser.symbol_table.get_value(self.value)
+
+class Variable(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
 
 class Print(Node):
-    def __init__(self, value, children =[]):
+    def __init__(self, value, children=[]):
         super().__init__(value, children)
     def evaluate(self):
         value = self.children[0].evaluate()
