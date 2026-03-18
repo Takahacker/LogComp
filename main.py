@@ -192,6 +192,7 @@ class Parser:
     lexer = None
     symbol_table = None
 
+    @staticmethod
     def parse_program():
         Parser.symbol_table = SymbolTable()
         block = Block("BLOCK", [])
@@ -199,8 +200,10 @@ class Parser:
             block.children.append(Parser.parse_statement())
         return block    
     
+    @staticmethod
     def parse_statement():
         if Parser.lexer.next.type == "EOL":
+            Parser.lexer.select_next()
             return NoOp("NoOp")
         elif Parser.lexer.next.type == "IDEN":
             var_name = Parser.lexer.next.value
@@ -219,13 +222,15 @@ class Parser:
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] Parêntese de fechamento esperado após expressão em 'print'")
             Parser.lexer.select_next()
+            if Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
             return Print("PRINT", [expr_node])
         
         else:
             raise Exception(f"[Parser] Token inesperado no início da instrução: {Parser.lexer.next.type}")
     
 
-
+    @staticmethod
     def parse_expression():
         res = Parser.parse_term()
         while Parser.lexer.next.type in ("PLUS", "MINUS", "XOR"):
@@ -240,6 +245,7 @@ class Parser:
         
         return res
 
+    @staticmethod
     def parse_term():
         res = Parser.parse_factor()
 
@@ -254,7 +260,7 @@ class Parser:
                 raise Exception(f"[Parser] Operador inesperado: {Parser.lexer.next.type}")
         return res
 
-
+    @staticmethod
     def parse_factor():
         if Parser.lexer.next.type == "IDEN":
             node = Identifier(Parser.lexer.next.value)
@@ -282,16 +288,18 @@ class Parser:
             Parser.lexer.select_next()
             return UnOp("PLUS", [Parser.parse_factor()])
 
+        if Parser.lexer.next.type in ("EOL", "EOF"):
+            raise Exception(f"[Parser] Expressão incompleta antes de {Parser.lexer.next.type}")
 
         raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
             
 
+    @staticmethod
     def run(code):
         Parser.lexer = Lexer(code)
         Parser.lexer.select_next()
         return Parser.parse_program()
 
-#a
 if __name__ == "__main__":
     with open("teste.lua", "r") as f:
         code = f.read()
