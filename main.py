@@ -1,9 +1,6 @@
 import re
 class PrePro:
-    def __init__(self, source):
-        self.source = source
-
-    def preprocess(self):
+    def preprocess(self,source):
    
         self.source = re.sub(r'--.*', '\n', self.source)
  
@@ -290,8 +287,8 @@ if __name__ == "__main__":
     with open("teste.lua", "r") as f:
         code = f.read()
     try:
-        preprocessor = PrePro(code)
-        code = preprocessor.preprocess()
+        preprocessor = PrePro()
+        code = preprocessor.preprocess(code)
         ast = Parser.run(code)
         ast.evaluate()
     except Exception as e:
