@@ -1,10 +1,12 @@
 import re
 import sys
+
 class PrePro:
     @staticmethod
     def filter(source):
         source = re.sub(r'--.*', '\n', source)
         return source
+    
 class Token:
     def __init__(self, type="", value=0):
         self.type = type
@@ -17,6 +19,17 @@ class Lexer:
         self.next = None
         self.palavras_reservadas = set()
         self.palavras_reservadas.add("print")
+        self.palavras_reservadas.add("if")
+        self.palavras_reservadas.add("else")
+        self.palavras_reservadas.add("while")
+        self.palavras_reservadas.add("for")
+        self.palavras_reservadas.add("do")
+        self.palavras_reservadas.add("end")
+        self.palavras_reservadas.add("then")
+        self.palavras_reservadas.add("and")
+        self.palavras_reservadas.add("or")
+        self.palavras_reservadas.add("read")
+
 
     def select_next(self):
         while self.position < len(self.source) and self.source[self.position].isspace():
@@ -25,7 +38,7 @@ class Lexer:
         if self.position >= len(self.source):
             self.next = Token("EOF")
             return
-        
+
         char = self.source[self.position]
 
         if char.isalpha():
@@ -34,13 +47,36 @@ class Lexer:
                 self.position += 1
             identifier = self.source[start_pos:self.position]
 
-            if identifier == "print":
+            if identifier in self.palavras_reservadas:
+                if identifier == "print":
                     self.next = Token("PRINT")
+                elif identifier == "if":
+                    self.next = Token("IF")
+                elif identifier == "else":
+                    self.next = Token("ELSE")
+                elif identifier == "while":
+                    self.next = Token("WHILE")
+                elif identifier == "do":
+                    self.next = Token("OPEN_BRA")
+                elif identifier == "end":
+                    self.next = Token("CLOSE_BRA")
+                elif identifier == "then":
+                    self.next = Token("OPEN_IF_BRA")   
+                elif identifier == "and":
+                    self.next = Token("AND")
+                elif identifier == "or":
+                    self.next = Token("OR")
+                elif identifier == "read":
+                    self.next = Token("READ")
             else:
                 self.next = Token("IDEN", identifier)
             return
 
         if char == '=':
+            if self.position + 1 < len(self.source) and self.source[self.position + 1] == '=':
+                self.next = Token("EQ")
+                self.position += 2
+                return
             self.next = Token("ASSIGN")
             self.position += 1
             return
@@ -91,13 +127,21 @@ class Lexer:
             self.next = Token("CLOSE_PAR")
             self.position += 1
             return
-            
+        if char == '<':
+            self.next = Token("LT")
+            self.position += 1
+            return
+        if char == '>':
+            self.next = Token("GT")
+            self.position += 1
+            return
+        
         raise Exception(f"[Lexer] Caractere inválido: '{char}' na posição {self.position}")
 
 class SymbolTable:
     def __init__(self):
         self.table = {}
-    
+
     def set_value(self, name, value):
         self.table[name] = value
     
@@ -105,6 +149,7 @@ class SymbolTable:
         if name not in self.table:
             raise Exception(f"[Semantic] Variável '{name}' não definida")
         return self.table[name]
+    
 class Node:
     def __init__(self, value, children=[]):
         self.value = value
@@ -176,7 +221,7 @@ class BinOp(Node):
             return left // right
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
-        
+
 class UnOp(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
@@ -189,9 +234,27 @@ class UnOp(Node):
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
 
+class If(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        if self.children[0].evaluate():
+            self.children[1].evaluate()
+        elif  len(self.children) > 2:
+            self.children[2].evaluate()
+
+class While(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        while self.children[0].evaluate():
+            self.children[1].evaluate()
+
+
 class Parser:
     lexer = None
     symbol_table = None
+        
 
     @staticmethod
     def parse_program():
@@ -229,7 +292,8 @@ class Parser:
         
         else:
             raise Exception(f"[Parser] Token inesperado no início da instrução: {Parser.lexer.next.type}")
-    
+
+
 
     @staticmethod
     def parse_expression():
