@@ -6,7 +6,7 @@ class PrePro:
     def filter(source):
         source = re.sub(r'--.*', '\n', source)
         return source
-    
+
 class Token:
     def __init__(self, type="", value=0):
         self.type = type
@@ -148,6 +148,11 @@ class Identifier(Node):
         return Parser.symbol_table.get_value(self.value)
 
 
+class Variable(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+
 class Print(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
@@ -223,7 +228,6 @@ class While(Node):
 
 
 class Read(Node):
-    """Nó sem filhos — lê um inteiro do terminal."""
     def __init__(self, value, children=[]):
         super().__init__(value, children)
 
@@ -235,10 +239,6 @@ class Parser:
     lexer = None
     symbol_table = None
 
-    # ------------------------------------------------------------------
-    # Program / Block
-    # ------------------------------------------------------------------
-
     @staticmethod
     def parse_program():
         Parser.symbol_table = SymbolTable()
@@ -249,27 +249,19 @@ class Parser:
 
     @staticmethod
     def parse_block():
-        """Consome statements até encontrar CLOSE_BRA (end) ou ELSE, consome 'end' se for o caso."""
         block = Block("BLOCK", [])
         while Parser.lexer.next.type not in ("CLOSE_BRA", "ELSE", "EOF"):
             block.children.append(Parser.parse_statement())
         if Parser.lexer.next.type == "CLOSE_BRA":
-            Parser.lexer.select_next() 
-        
+            Parser.lexer.select_next()
         return block
-
-    # ------------------------------------------------------------------
-    # Statement
-    # ------------------------------------------------------------------
 
     @staticmethod
     def parse_statement():
-        
         if Parser.lexer.next.type == "EOL":
             Parser.lexer.select_next()
             return NoOp("NoOp")
 
-      
         elif Parser.lexer.next.type == "IDEN":
             var_name = Parser.lexer.next.value
             Parser.lexer.select_next()
@@ -281,7 +273,6 @@ class Parser:
                 Parser.lexer.select_next()
             return node
 
-        # print ( BEXPR )
         elif Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_PAR":
@@ -295,7 +286,6 @@ class Parser:
                 Parser.lexer.select_next()
             return Print("PRINT", [expr_node])
 
-     
         elif Parser.lexer.next.type == "IF":
             Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_PAR":
@@ -305,21 +295,14 @@ class Parser:
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] ')' esperado após condição do 'if'")
             Parser.lexer.select_next()
-
-           
             if Parser.lexer.next.type != "OPEN_IF_BRA":
                 raise Exception("[Parser] 'then' esperado após condição do 'if'")
             Parser.lexer.select_next()
-
-            
             while Parser.lexer.next.type == "EOL":
                 Parser.lexer.select_next()
-
-            then_block = Parser.parse_block()  
-
+            then_block = Parser.parse_block()
             while Parser.lexer.next.type == "EOL":
                 Parser.lexer.select_next()
-
             if Parser.lexer.next.type == "ELSE":
                 Parser.lexer.select_next()
                 while Parser.lexer.next.type == "EOL":
@@ -328,10 +311,8 @@ class Parser:
                 while Parser.lexer.next.type == "EOL":
                     Parser.lexer.select_next()
                 return If("IF", [cond, then_block, else_block])
-
             return If("IF", [cond, then_block])
 
-        
         elif Parser.lexer.next.type == "WHILE":
             Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_PAR":
@@ -341,28 +322,21 @@ class Parser:
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] ')' esperado após condição do 'while'")
             Parser.lexer.select_next()
-
             if Parser.lexer.next.type != "OPEN_BRA":
                 raise Exception("[Parser] 'do' esperado após condição do 'while'")
             Parser.lexer.select_next()
-
             while Parser.lexer.next.type == "EOL":
                 Parser.lexer.select_next()
-
             body = Parser.parse_block()
-
             while Parser.lexer.next.type == "EOL":
                 Parser.lexer.select_next()
-
             return While("WHILE", [cond, body])
 
         else:
             raise Exception(f"[Parser] Token inesperado no início da instrução: {Parser.lexer.next.type}")
 
-
     @staticmethod
     def parse_bool_expression():
-        """BEXPR = BTERM { or BTERM }"""
         res = Parser.parse_bool_term()
         while Parser.lexer.next.type == "OR":
             Parser.lexer.select_next()
@@ -371,7 +345,6 @@ class Parser:
 
     @staticmethod
     def parse_bool_term():
-        """BTERM = REXPR { and REXPR }"""
         res = Parser.parse_rel_expression()
         while Parser.lexer.next.type == "AND":
             Parser.lexer.select_next()
@@ -380,14 +353,12 @@ class Parser:
 
     @staticmethod
     def parse_rel_expression():
-        """REXPR = EXPR [ (== | < | >) EXPR ]"""
         res = Parser.parse_expression()
         if Parser.lexer.next.type in ("EQ", "LT", "GT"):
             op = Parser.lexer.next.type
             Parser.lexer.select_next()
             res = BinOp(op, [res, Parser.parse_expression()])
         return res
-
 
     @staticmethod
     def parse_expression():
@@ -411,34 +382,28 @@ class Parser:
     def parse_factor():
         tok = Parser.lexer.next
 
-        # Unary +
         if tok.type == "PLUS":
             Parser.lexer.select_next()
             return UnOp("PLUS", [Parser.parse_factor()])
 
-        # Unary -
         if tok.type == "MINUS":
             Parser.lexer.select_next()
             return UnOp("MINUS", [Parser.parse_factor()])
 
-        # Unary not
         if tok.type == "NOT":
             Parser.lexer.select_next()
             return UnOp("NOT", [Parser.parse_factor()])
 
-        # Identificador
         if tok.type == "IDEN":
             node = Identifier(tok.value)
             Parser.lexer.select_next()
             return node
 
-        # Inteiro literal
         if tok.type == "INT":
             node = IntVal(tok.value)
             Parser.lexer.select_next()
             return node
 
-        # Expressão parentesada  ( BEXPR )
         if tok.type == "OPEN_PAR":
             Parser.lexer.select_next()
             node = Parser.parse_bool_expression()
@@ -447,7 +412,6 @@ class Parser:
             Parser.lexer.select_next()
             return node
 
-        # read()
         if tok.type == "READ":
             Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_PAR":
@@ -463,7 +427,6 @@ class Parser:
 
         raise Exception(f"[Parser] Token inesperado: {tok.type}")
 
-
     @staticmethod
     def run(code):
         Parser.lexer = Lexer(code)
@@ -471,10 +434,6 @@ class Parser:
         return Parser.parse_program()
 
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         with open(sys.argv[1], "r") as f:
