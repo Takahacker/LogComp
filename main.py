@@ -250,7 +250,9 @@ class Parser:
     @staticmethod
     def parse_block():
         block = Block("BLOCK", [])
-        while Parser.lexer.next.type not in ("CLOSE_BRA", "ELSE", "EOF"):
+        while Parser.lexer.next.type not in ("CLOSE_BRA", "ELSE"):
+            if Parser.lexer.next.type == "EOF":
+                raise Exception("[Parser] 'end' esperado antes do fim do arquivo")
             block.children.append(Parser.parse_statement())
         if Parser.lexer.next.type == "CLOSE_BRA":
             Parser.lexer.select_next()
@@ -331,6 +333,15 @@ class Parser:
             while Parser.lexer.next.type == "EOL":
                 Parser.lexer.select_next()
             return While("WHILE", [cond, body])
+
+        elif Parser.lexer.next.type == "OPEN_BRA":
+            Parser.lexer.select_next()
+            while Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
+            node = Parser.parse_block()
+            while Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
+            return node
 
         else:
             raise Exception(f"[Parser] Token inesperado no início da instrução: {Parser.lexer.next.type}")
