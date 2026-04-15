@@ -201,8 +201,15 @@ class VarDec(Node):
         name = self.children[0].value
         var_type = self.value  # "number" or "string"
 
+        expected_type = "int" if var_type == "number" else "str"
+
         if len(self.children) == 2:
             initial_value = self.children[1].evaluate(symbol_table)
+            if initial_value.type != expected_type:
+                raise Exception(
+                    f"[Semantic] Tipo incompatível na declaração de '{name}': "
+                    f"esperado '{var_type}', recebido '{initial_value.type}'"
+                )
             symbol_table.create_variable(name, initial_value)
         else:
             if var_type == "number":

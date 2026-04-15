@@ -200,7 +200,9 @@ class Parser:
             name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
-            var_type = Parser.lexer.next.value  # "number" or "string"
+            var_type = Parser.lexer.next.value
+            if var_type not in ("number", "string"):
+                raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
             Parser.lexer.select_next()
 
             if Parser.lexer.next.type == "ASSIGN":
