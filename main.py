@@ -186,9 +186,6 @@ class Parser:
                 raise Exception("[Parser] Esperado 'end'")
             block.children.append(Parser.parse_statement())
 
-        if Parser.lexer.next.type == "CLOSE_BRA":
-            Parser.lexer.select_next()
-
         return block
 
     @staticmethod
@@ -231,10 +228,17 @@ class Parser:
 
         if Parser.lexer.next.type == "IF":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'if'")
             Parser.lexer.select_next()
 
             cond = Parser.parse_bool_expression()
+
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' em condição do 'if'")
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_IF_BRA":
+                raise Exception("[Parser] Esperado 'then'")
             Parser.lexer.select_next()
 
             then_block = Parser.parse_block()
@@ -242,23 +246,43 @@ class Parser:
             if Parser.lexer.next.type == "ELSE":
                 Parser.lexer.select_next()
                 else_block = Parser.parse_block()
+                if Parser.lexer.next.type != "CLOSE_BRA":
+                    raise Exception("[Parser] Esperado 'end'")
+                Parser.lexer.select_next()
                 return If("IF", [cond, then_block, else_block])
 
+            if Parser.lexer.next.type != "CLOSE_BRA":
+                raise Exception("[Parser] Esperado 'end'")
+            Parser.lexer.select_next()
             return If("IF", [cond, then_block])
 
         if Parser.lexer.next.type == "OPEN_BRA":
             Parser.lexer.select_next()
-            return Parser.parse_block()
+            block = Parser.parse_block()
+            if Parser.lexer.next.type != "CLOSE_BRA":
+                raise Exception("[Parser] Esperado 'end'")
+            Parser.lexer.select_next()
+            return block
 
         if Parser.lexer.next.type == "WHILE":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'while'")
             Parser.lexer.select_next()
 
             cond = Parser.parse_bool_expression()
+
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' em condição do 'while'")
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_BRA":
+                raise Exception("[Parser] Esperado 'do'")
             Parser.lexer.select_next()
 
             body = Parser.parse_block()
+            if Parser.lexer.next.type != "CLOSE_BRA":
+                raise Exception("[Parser] Esperado 'end'")
+            Parser.lexer.select_next()
             return While("WHILE", [cond, body])
 
         raise Exception("[Parser] Statement inválido")
@@ -360,7 +384,11 @@ class Parser:
 
         if tok.type == "READ":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'read'")
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' em 'read'")
             Parser.lexer.select_next()
             return Read("READ")
 
