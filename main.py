@@ -254,9 +254,31 @@ class Parser:
 
     @staticmethod
     def parse_bool_expression():
+        res = Parser.parse_bool_term()
+
+        while Parser.lexer.next.type == "OR":
+            op = Parser.lexer.next.type
+            Parser.lexer.select_next()
+            res = BinOp(op, [res, Parser.parse_bool_term()])
+
+        return res
+
+    @staticmethod
+    def parse_bool_term():
+        res = Parser.parse_rel_expression()
+
+        while Parser.lexer.next.type == "AND":
+            op = Parser.lexer.next.type
+            Parser.lexer.select_next()
+            res = BinOp(op, [res, Parser.parse_rel_expression()])
+
+        return res
+
+    @staticmethod
+    def parse_rel_expression():
         res = Parser.parse_expression()
 
-        while Parser.lexer.next.type in ("AND", "OR"):
+        if Parser.lexer.next.type in ("EQ", "LT", "GT"):
             op = Parser.lexer.next.type
             Parser.lexer.select_next()
             res = BinOp(op, [res, Parser.parse_expression()])
