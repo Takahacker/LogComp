@@ -370,7 +370,8 @@ class Parser:
 if __name__ == "__main__":
     symbol_table = SymbolTable()
 
-    code = sys.stdin.read()
+    with open(sys.argv[1]) as f:
+        code = f.read()
     code = PrePro.filter(code)
 
     ast = Parser.run(code)
