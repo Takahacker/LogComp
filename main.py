@@ -201,7 +201,7 @@ class Parser:
             Parser.lexer.select_next()
 
             var_type = Parser.lexer.next.value
-            if var_type not in ("number", "string"):
+            if var_type not in ("number", "string", "boolean"):
                 raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
             Parser.lexer.select_next()
 

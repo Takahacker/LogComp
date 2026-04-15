@@ -201,7 +201,8 @@ class VarDec(Node):
         name = self.children[0].value
         var_type = self.value  # "number" or "string"
 
-        expected_type = "int" if var_type == "number" else "str"
+        type_map = {"number": "int", "string": "str", "boolean": "bool"}
+        expected_type = type_map[var_type]
 
         if len(self.children) == 2:
             initial_value = self.children[1].evaluate(symbol_table)
@@ -212,10 +213,8 @@ class VarDec(Node):
                 )
             symbol_table.create_variable(name, initial_value)
         else:
-            if var_type == "number":
-                symbol_table.create_variable(name, Variable(0, "int"))
-            else:
-                symbol_table.create_variable(name, Variable("", "str"))
+            defaults = {"int": Variable(0, "int"), "str": Variable("", "str"), "bool": Variable(False, "bool")}
+            symbol_table.create_variable(name, defaults[expected_type])
 
 
 class BoolVal(Node):
