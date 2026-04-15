@@ -160,6 +160,8 @@ class UnOp(Node):
         elif self.value == "MINUS":
             return Variable(-operand.value, "int")
         elif self.value == "NOT":
+            if operand.type != "bool":
+                raise Exception(f"[Semantic] Operação 'not' não suportada para tipo '{operand.type}'")
             return Variable(not bool(operand.value), "bool")
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
@@ -170,7 +172,10 @@ class If(Node):
         super().__init__(value, children)
 
     def evaluate(self, symbol_table):
-        if self.children[0].evaluate(symbol_table).value:
+        cond = self.children[0].evaluate(symbol_table)
+        if cond.type != "bool":
+            raise Exception(f"[Semantic] Condição do 'if' deve ser bool, recebido '{cond.type}'")
+        if cond.value:
             self.children[1].evaluate(symbol_table)
         elif len(self.children) > 2:
             self.children[2].evaluate(symbol_table)
@@ -181,7 +186,12 @@ class While(Node):
         super().__init__(value, children)
 
     def evaluate(self, symbol_table):
-        while self.children[0].evaluate(symbol_table).value:
+        while True:
+            cond = self.children[0].evaluate(symbol_table)
+            if cond.type != "bool":
+                raise Exception(f"[Semantic] Condição do 'while' deve ser bool, recebido '{cond.type}'")
+            if not cond.value:
+                break
             self.children[1].evaluate(symbol_table)
 
 
