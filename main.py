@@ -203,10 +203,13 @@ class Parser:
             name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
+            var_type = Parser.lexer.next.value  # "number" or "string"
+            Parser.lexer.select_next()
+
             if Parser.lexer.next.type == "ASSIGN":
                 Parser.lexer.select_next()
-                return VarDec(None, [Identifier(name), Parser.parse_bool_expression()])
-            return VarDec(None, [Identifier(name)])
+                return VarDec(var_type, [Identifier(name), Parser.parse_bool_expression()])
+            return VarDec(var_type, [Identifier(name)])
 
         if Parser.lexer.next.type == "IDEN":
             name = Parser.lexer.next.value
@@ -238,6 +241,10 @@ class Parser:
                 return If("IF", [cond, then_block, else_block])
 
             return If("IF", [cond, then_block])
+
+        if Parser.lexer.next.type == "OPEN_BRA":
+            Parser.lexer.select_next()
+            return Parser.parse_block()
 
         if Parser.lexer.next.type == "WHILE":
             Parser.lexer.select_next()
@@ -289,7 +296,7 @@ class Parser:
     def parse_expression():
         res = Parser.parse_term()
 
-        while Parser.lexer.next.type in ("PLUS", "MINUS"):
+        while Parser.lexer.next.type in ("PLUS", "MINUS", "CONCAT"):
             op = Parser.lexer.next.type
             Parser.lexer.select_next()
             res = BinOp(op, [res, Parser.parse_term()])
@@ -332,6 +339,18 @@ class Parser:
             node = Parser.parse_bool_expression()
             Parser.lexer.select_next()
             return node
+
+        if tok.type == "NOT":
+            Parser.lexer.select_next()
+            return UnOp("NOT", [Parser.parse_factor()])
+
+        if tok.type == "PLUS":
+            Parser.lexer.select_next()
+            return UnOp("PLUS", [Parser.parse_factor()])
+
+        if tok.type == "MINUS":
+            Parser.lexer.select_next()
+            return UnOp("MINUS", [Parser.parse_factor()])
 
         if tok.type == "READ":
             Parser.lexer.select_next()

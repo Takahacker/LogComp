@@ -7,6 +7,12 @@ class Node:
         pass
 
 
+class Variable:
+    def __init__(self, value, var_type):
+        self.value = value
+        self.type = var_type
+
+
 class Block(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
@@ -42,24 +48,22 @@ class Identifier(Node):
         return symbol_table.get_value(self.value)
 
 
-class Variable(Node):
-    def __init__(self, value, children=[]):
-        super().__init__(value, children)
-        
-
-
 class Print(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
 
     def evaluate(self, symbol_table):
         value = self.children[0].evaluate(symbol_table)
-        print(value)
+        if value.type == "bool":
+            print("true" if value.value else "false")
+        else:
+            print(value.value)
 
 
 class IntVal(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+
     def evaluate(self, symbol_table):
         return Variable(self.value, "int")
 
@@ -69,68 +73,78 @@ class BinOp(Node):
         super().__init__(value, children)
 
     def evaluate(self, symbol_table):
-
         left = self.children[0].evaluate(symbol_table)
         right = self.children[1].evaluate(symbol_table)
 
-        if   self.value == "PLUS":
-            if right.type == "INT" and left.type == "INT":  
+        if self.value == "PLUS":
+            if left.type == "int" and right.type == "int":
                 return Variable(left.value + right.value, "int")
-            else: 
+            else:
                 raise Exception(f"[Semantic] Operação '+' não suportada entre tipos {left.type} e {right.type}")
+
         elif self.value == "MINUS":
-            if right.type == "INT" and left.type == "INT":  
+            if left.type == "int" and right.type == "int":
                 return Variable(left.value - right.value, "int")
             else:
                 raise Exception(f"[Semantic] Operação '-' não suportada entre tipos {left.type} e {right.type}")
 
-        elif self.value == "MULT":  
-            if right.type == "INT" and left.type == "INT":
+        elif self.value == "MULT":
+            if left.type == "int" and right.type == "int":
                 return Variable(left.value * right.value, "int")
             else:
                 raise Exception(f"[Semantic] Operação '*' não suportada entre tipos {left.type} e {right.type}")
-        elif self.value == "XOR":   
-            if right.type == "INT" and left.type == "INT":
+
+        elif self.value == "XOR":
+            if left.type == "int" and right.type == "int":
                 return Variable(left.value ^ right.value, "int")
             else:
                 raise Exception(f"[Semantic] Operação '^' não suportada entre tipos {left.type} e {right.type}")
-            
+
         elif self.value == "DIV":
-            if right == 0:
-                raise Exception("[Semantic] division by zero")
-            return Variable(left.value // right.value, "int")
-        
-        # AND , OR Bool op Bool
-        elif self.value == "AND":  
-            if right.type == "bool" and left.type == "bool":
+            if left.type == "int" and right.type == "int":
+                if right.value == 0:
+                    raise Exception("[Semantic] division by zero")
+                return Variable(left.value // right.value, "int")
+            else:
+                raise Exception(f"[Semantic] Operação '/' não suportada entre tipos {left.type} e {right.type}")
+
+        elif self.value == "AND":
+            if left.type == "bool" and right.type == "bool":
                 return Variable(left.value and right.value, "bool")
             else:
                 raise Exception(f"[Semantic] Operação 'and' não suportada entre tipos {left.type} e {right.type}")
-        elif self.value == "OR":    
-            if right.type == "bool" and left.type == "bool":
-                return Variable(left.value== right.value, "bool")
+
+        elif self.value == "OR":
+            if left.type == "bool" and right.type == "bool":
+                return Variable(left.value or right.value, "bool")
             else:
                 raise Exception(f"[Semantic] Operação 'or' não suportada entre tipos {left.type} e {right.type}")
-            
 
-        # Type1 == Type2 , return bool
-        elif self.value == "EQ":    
-            if right.type == left.type:
-               if right == left:
-                   return Variable(left.value== right.value, right.type)
+        elif self.value == "EQ":
+            if left.type == right.type:
+                return Variable(left.value == right.value, "bool")
             else:
                 raise Exception(f"[Semantic] Operação '==' não suportada entre tipos {left.type} e {right.type}")
 
-        elif self.value == "LT":    
-            if right.type == left.type:
-                return Variable(left.value <  right.value, "bool")
+        elif self.value == "LT":
+            if left.type == right.type:
+                return Variable(left.value < right.value, "bool")
             else:
                 raise Exception(f"[Semantic] Operação '<' não suportada entre tipos {left.type} e {right.type}")
-        elif self.value == "GT":    
-            if right.type == left.type:
-                return Variable(left.value >  right.value, "bool")
+
+        elif self.value == "GT":
+            if left.type == right.type:
+                return Variable(left.value > right.value, "bool")
             else:
-                raise Exception(f"[Semantic] Operação '>' não suportada entre tipos {left.type} e {right.type}")    
+                raise Exception(f"[Semantic] Operação '>' não suportada entre tipos {left.type} e {right.type}")
+
+        elif self.value == "CONCAT":
+            def to_str(v):
+                if v.type == "bool":
+                    return "true" if v.value else "false"
+                return str(v.value)
+            return Variable(to_str(left) + to_str(right), "str")
+
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
 
@@ -141,9 +155,12 @@ class UnOp(Node):
 
     def evaluate(self, symbol_table):
         operand = self.children[0].evaluate(symbol_table)
-        if   self.value == "PLUS":  return Variable(operand.value, operand.type)
-        elif self.value == "MINUS": return Variable(-operand.value, "int")
-        elif self.value == "NOT":   return Variable(int(not bool(operand.value)), "bool")
+        if self.value == "PLUS":
+            return Variable(operand.value, operand.type)
+        elif self.value == "MINUS":
+            return Variable(-operand.value, "int")
+        elif self.value == "NOT":
+            return Variable(not bool(operand.value), "bool")
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
 
@@ -171,25 +188,40 @@ class While(Node):
 class Read(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+
     def evaluate(self, symbol_table):
         return Variable(int(input()), "int")
-    
+
+
 class VarDec(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+
     def evaluate(self, symbol_table):
-        if len(self.children) == 1:
-            symbol_table.set_value(self.value, self.children[0].evaluate(symbol_table))
-                                   
+        name = self.children[0].value
+        var_type = self.value  # "number" or "string"
+
+        if len(self.children) == 2:
+            initial_value = self.children[1].evaluate(symbol_table)
+            symbol_table.create_variable(name, initial_value)
+        else:
+            if var_type == "number":
+                symbol_table.create_variable(name, Variable(0, "int"))
+            else:
+                symbol_table.create_variable(name, Variable("", "str"))
+
 
 class BoolVal(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+
     def evaluate(self, symbol_table):
         return Variable(self.value, "bool")
+
 
 class StringVal(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
+
     def evaluate(self, symbol_table):
         return Variable(self.value, "str")
