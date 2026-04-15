@@ -183,7 +183,7 @@ class Parser:
 
         while Parser.lexer.next.type not in ("CLOSE_BRA", "ELSE"):
             if Parser.lexer.next.type == "EOF":
-                raise Exception("Esperado 'end'")
+                raise Exception("[Parser] Esperado 'end'")
             block.children.append(Parser.parse_statement())
 
         if Parser.lexer.next.type == "CLOSE_BRA":
@@ -257,7 +257,7 @@ class Parser:
             body = Parser.parse_block()
             return While("WHILE", [cond, body])
 
-        raise Exception("Statement inválido")
+        raise Exception("[Parser] Statement inválido")
 
     @staticmethod
     def parse_bool_expression():
@@ -358,7 +358,7 @@ class Parser:
             Parser.lexer.select_next()
             return Read("READ")
 
-        raise Exception("Fator inválido")
+        raise Exception("[Parser] Fator inválido")
 
     @staticmethod
     def run(code):
