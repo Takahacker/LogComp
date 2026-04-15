@@ -149,21 +149,21 @@ class SymbolTable:
 
     def set_value(self, name, variable):
         if name not in self.table:
-            raise Exception(f"Variável '{name}' não definida")
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
 
         if self.table[name].type != variable.type:
-            raise Exception("Tipo incompatível")
+            raise Exception("[Semantic] Tipo incompatível")
 
         self.table[name] = variable
 
     def get_value(self, name):
         if name not in self.table:
-            raise Exception(f"Variável '{name}' não definida")
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
         return self.table[name]
 
     def create_variable(self, name, variable):
         if name in self.table:
-            raise Exception(f"Variável '{name}' já existe")
+            raise Exception(f"[Semantic] Variável '{name}' já existe")
         self.table[name] = variable
 
 
@@ -220,8 +220,12 @@ class Parser:
 
         if Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'print'")
             Parser.lexer.select_next()
             expr = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' após expressão em 'print'")
             Parser.lexer.select_next()
             return Print("PRINT", [expr])
 
@@ -337,6 +341,8 @@ class Parser:
         if tok.type == "OPEN_PAR":
             Parser.lexer.select_next()
             node = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')'")
             Parser.lexer.select_next()
             return node
 
