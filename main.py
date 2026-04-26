@@ -8,7 +8,6 @@ class PrePro:
         source = re.sub(r'--.*', '\n', source)
         return source
 
-
 class Token:
     def __init__(self, type="", value=None):
         self.type = type
@@ -146,6 +145,7 @@ class Lexer:
 class SymbolTable:
     def __init__(self):
         self.table = {}
+        self.offset = 0
 
     def set_value(self, name, variable):
         if name not in self.table:
@@ -154,6 +154,7 @@ class SymbolTable:
         if self.table[name].type != variable.type:
             raise Exception("[Semantic] Tipo incompatível")
 
+        variable.shift = self.table[name].shift
         self.table[name] = variable
 
     def get_value(self, name):
@@ -164,6 +165,8 @@ class SymbolTable:
     def create_variable(self, name, variable):
         if name in self.table:
             raise Exception(f"[Semantic] Variável '{name}' já existe")
+        self.offset += 4
+        variable.shift = self.offset
         self.table[name] = variable
 
 
@@ -411,4 +414,7 @@ if __name__ == "__main__":
     code = PrePro.filter(code)
 
     ast = Parser.run(code)
-    ast.evaluate(symbol_table)
+    ast.generate(symbol_table)
+
+    output_file = sys.argv[1].rsplit('.', 1)[0] + '.asm'
+    Code.dump(output_file)
