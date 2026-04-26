@@ -44,17 +44,17 @@ class Variable:
 
 
 class Node:
-    id_counter = 0
+    id = 0
 
     @staticmethod
-    def newId():
-        Node.id_counter += 1
-        return Node.id_counter
+    def new_id():
+        Node.id += 1
+        return Node.id
 
     def __init__(self, value, children=[]):
         self.value = value
         self.children = children
-        self.id = Node.newId()
+        self.id = Node.new_id()
 
     def evaluate(self, symbol_table):
         pass

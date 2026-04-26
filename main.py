@@ -407,14 +407,13 @@ class Parser:
 
 
 if __name__ == "__main__":
-    symbol_table = SymbolTable()
-
     with open(sys.argv[1]) as f:
         code = f.read()
     code = PrePro.filter(code)
 
     ast = Parser.run(code)
-    ast.generate(symbol_table)
+    ast.evaluate(SymbolTable())
+    ast.generate(SymbolTable())
 
     output_file = sys.argv[1].rsplit('.', 1)[0] + '.asm'
     Code.dump(output_file)
