@@ -147,6 +147,7 @@ class Lexer:
 
 class Parser:
     lexer = None
+    _current_iden = None
 
     @staticmethod
     def parse_program():
@@ -216,10 +217,11 @@ class Parser:
             raise Exception("[Parser] Esperado 'end' após corpo da função")
         Parser.lexer.select_next()
 
-        return Fundec(ret_type, [Identifier(name)] + args + [body])
+        return FuncDec(ret_type, [Identifier(name)] + args + [body])
 
     @staticmethod
-    def parse_func_call(name):
+    def parse_func_call():
+        name = Parser._current_iden
         Parser.lexer.select_next()  # consume '('
         args = []
         if Parser.lexer.next.type != "CLOSE_PAR":
@@ -230,7 +232,26 @@ class Parser:
         if Parser.lexer.next.type != "CLOSE_PAR":
             raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
         Parser.lexer.select_next()
-        return Funcall(name, args)
+        return FuncCall(name, args)
+
+    @staticmethod
+    def parse_var_declaration():
+        Parser.lexer.select_next()  # consume 'local'
+
+        if Parser.lexer.next.type != "IDEN":
+            raise Exception("[Parser] Esperado nome da variável após 'local'")
+        name = Parser.lexer.next.value
+        Parser.lexer.select_next()
+
+        var_type = Parser.lexer.next.value
+        if var_type not in ("number", "string", "boolean"):
+            raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
+        Parser.lexer.select_next()
+
+        if Parser.lexer.next.type == "ASSIGN":
+            Parser.lexer.select_next()
+            return VarDec(var_type, [Identifier(name), Parser.parse_bool_expression()])
+        return VarDec(var_type, [Identifier(name)])
 
     @staticmethod
     def parse_block():
@@ -250,32 +271,20 @@ class Parser:
             return NoOp("NoOp")
 
         if Parser.lexer.next.type == "VAR":
-            Parser.lexer.select_next()
-
-            name = Parser.lexer.next.value
-            Parser.lexer.select_next()
-
-            var_type = Parser.lexer.next.value
-            if var_type not in ("number", "string", "boolean"):
-                raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
-            Parser.lexer.select_next()
-
-            if Parser.lexer.next.type == "ASSIGN":
-                Parser.lexer.select_next()
-                return VarDec(var_type, [Identifier(name), Parser.parse_bool_expression()])
-            return VarDec(var_type, [Identifier(name)])
+            return Parser.parse_var_declaration()
 
         if Parser.lexer.next.type == "IDEN":
-            name = Parser.lexer.next.value
+            Parser._current_iden = Parser.lexer.next.value
             Parser.lexer.select_next()
 
             if Parser.lexer.next.type == "OPEN_PAR":
-                return Parser.parse_func_call(name)
+                return Parser.parse_func_call()
             elif Parser.lexer.next.type == "ASSIGN":
+                name = Parser._current_iden
                 Parser.lexer.select_next()
                 return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
             else:
-                raise Exception(f"[Parser] Esperado '=' ou '(' após '{name}'")
+                raise Exception(f"[Parser] Esperado '=' ou '(' após '{Parser._current_iden}'")
 
         if Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -415,7 +424,8 @@ class Parser:
         if tok.type == "IDEN":
             Parser.lexer.select_next()
             if Parser.lexer.next.type == "OPEN_PAR":
-                return Parser.parse_func_call(tok.value)
+                Parser._current_iden = tok.value
+                return Parser.parse_func_call()
             return Identifier(tok.value)
 
         if tok.type == "OPEN_PAR":

@@ -478,12 +478,11 @@ class StringVal(Node):
         pass
 
 
-class Fundec(Node):
+class FuncDec(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
 
     def evaluate(self, symbol_table):
-    
         root = symbol_table
         while root.parent is not None:
             root = root.parent
@@ -496,7 +495,7 @@ class Fundec(Node):
         pass
 
 
-class Funcall(Node):
+class FuncCall(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
 
@@ -507,8 +506,8 @@ class Funcall(Node):
         if not func_var.is_func:
             raise Exception(f"[Semantic] '{func_name}' não é uma função")
 
-        func_dec = func_var.value  
-        
+        func_dec = func_var.value
+
         expected_args = func_dec.children[1:-1]
 
         if len(self.children) != len(expected_args):
