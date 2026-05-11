@@ -42,6 +42,7 @@ class Variable:
         self.type = var_type
         self.shift = 0
         self.is_func = False
+        self.is_struct = False
 
 
 class SymbolTable:
@@ -421,22 +422,30 @@ class VarDec(Node):
         var_type = self.value
 
         type_map = {"number": "int", "string": "str", "boolean": "bool"}
-        expected_type = type_map[var_type]
 
-        if len(self.children) == 2:
-            initial_value = self.children[1].evaluate(symbol_table)
-            if initial_value.type != expected_type:
-                raise Exception(
-                    f"[Semantic] Tipo incompatível na declaração de '{name}': "
-                    f"esperado '{var_type}', recebido '{initial_value.type}'"
-                )
-            var = Variable(initial_value.value, initial_value.type)
-            var.is_func = False
-            symbol_table.create_variable(name, var)
+        if var_type in type_map:
+            expected_type = type_map[var_type]
+            if len(self.children) == 2:
+                initial_value = self.children[1].evaluate(symbol_table)
+                if initial_value.type != expected_type:
+                    raise Exception(
+                        f"[Semantic] Tipo incompatível na declaração de '{name}': "
+                        f"esperado '{var_type}', recebido '{initial_value.type}'"
+                    )
+                var = Variable(initial_value.value, initial_value.type)
+                var.is_func = False
+                symbol_table.create_variable(name, var)
+            else:
+                defaults = {"int": Variable(0, "int"), "str": Variable("", "str"), "bool": Variable(False, "bool")}
+                var = Variable(defaults[expected_type].value, expected_type)
+                var.is_func = False
+                symbol_table.create_variable(name, var)
         else:
-            defaults = {"int": Variable(0, "int"), "str": Variable("", "str"), "bool": Variable(False, "bool")}
-            var = defaults[expected_type]
-            var.is_func = False
+            struct_var = symbol_table.get_value(var_type)
+            if not struct_var.is_struct:
+                raise Exception(f"[Semantic] '{var_type}' não é um struct")
+            instance = StructDec.make_instance(struct_var.value, symbol_table)
+            var = Variable(instance, var_type)
             symbol_table.create_variable(name, var)
 
     def generate(self, symbol_table):
@@ -569,6 +578,93 @@ class Return(Node):
 
     def evaluate(self, symbol_table):
         return self.children[0].evaluate(symbol_table)
+
+    def generate(self, symbol_table):
+        pass
+
+
+class StructDec(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        root = symbol_table
+        while root.parent is not None:
+            root = root.parent
+        struct_name = self.children[0].value
+        var = Variable(self, "struct_def")
+        var.is_struct = True
+        root.create_variable(struct_name, var)
+
+    @staticmethod
+    def make_instance(struct_dec_node, symbol_table):
+        type_map = {"number": "int", "string": "str", "boolean": "bool"}
+        defaults = {"int": 0, "str": "", "bool": False}
+        instance = {}
+        for child in struct_dec_node.children[1:]:
+            field_name = child.children[0].value
+            field_type = child.value
+            if field_type in type_map:
+                t = type_map[field_type]
+                instance[field_name] = Variable(defaults[t], t)
+            else:
+                nested_var = symbol_table.get_value(field_type)
+                if not nested_var.is_struct:
+                    raise Exception(f"[Semantic] '{field_type}' não é um struct")
+                nested = StructDec.make_instance(nested_var.value, symbol_table)
+                instance[field_name] = Variable(nested, field_type)
+        return instance
+
+    def generate(self, symbol_table):
+        pass
+
+
+class StructAccess(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        obj_var = symbol_table.get_value(self.value)
+        for field_id in self.children:
+            if not isinstance(obj_var.value, dict):
+                raise Exception(f"[Semantic] Acesso inválido: '{self.value}' não é um struct")
+            field_name = field_id.value
+            if field_name not in obj_var.value:
+                raise Exception(f"[Semantic] Campo '{field_name}' não existe")
+            obj_var = obj_var.value[field_name]
+        return obj_var
+
+    def generate(self, symbol_table):
+        pass
+
+
+class StructAssign(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        field_path = self.children[:-1]
+        new_value = self.children[-1].evaluate(symbol_table)
+        obj_var = symbol_table.get_value(self.value)
+        for field_id in field_path[:-1]:
+            if not isinstance(obj_var.value, dict):
+                raise Exception(f"[Semantic] '{self.value}' não é um struct")
+            field_name = field_id.value
+            if field_name not in obj_var.value:
+                raise Exception(f"[Semantic] Campo '{field_name}' não existe")
+            obj_var = obj_var.value[field_name]
+        final = field_path[-1].value
+        if not isinstance(obj_var.value, dict):
+            raise Exception(f"[Semantic] '{self.value}' não é um struct")
+        if final not in obj_var.value:
+            raise Exception(f"[Semantic] Campo '{final}' não existe")
+        existing = obj_var.value[final]
+        if existing.type != new_value.type:
+            raise Exception(
+                f"[Semantic] Tipo incompatível para campo '{final}': "
+                f"esperado '{existing.type}', recebido '{new_value.type}'"
+            )
+        obj_var.value[final] = new_value
 
     def generate(self, symbol_table):
         pass

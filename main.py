@@ -22,7 +22,7 @@ class Lexer:
         self.reserved = {
             "print", "if", "else", "while", "do", "end",
             "then", "and", "or", "not", "read", "local",
-            "true", "false", "return", "function"
+            "true", "false", "return", "function", "struct"
         }
 
     def select_next(self):
@@ -84,6 +84,7 @@ class Lexer:
                 "local": "VAR",
                 "function": "FUNCTION",
                 "return": "RETURN",
+                "struct": "STRUCT",
             }
 
             if word in token_map:
@@ -121,8 +122,9 @@ class Lexer:
                 self.position += 2
                 self.next = Token("CONCAT")
                 return
-            else:
-                raise Exception("[Lexer] '.' inesperado")
+            self.position += 1
+            self.next = Token("DOT")
+            return
 
         simple_tokens = {
             '+': "PLUS",
@@ -154,9 +156,35 @@ class Parser:
         while Parser.lexer.next.type != "EOF":
             if Parser.lexer.next.type == "FUNCTION":
                 block.children.append(Parser.parse_func_declaration())
+            elif Parser.lexer.next.type == "STRUCT":
+                block.children.append(Parser.parse_struct_declaration())
             else:
                 block.children.append(Parser.parse_statement())
         return block
+
+    @staticmethod
+    def parse_struct_declaration():
+        Parser.lexer.select_next()  # consume 'struct'
+
+        if Parser.lexer.next.type != "IDEN":
+            raise Exception("[Parser] Esperado nome do struct")
+        name = Parser.lexer.next.value
+        Parser.lexer.select_next()
+
+        fields = []
+        while Parser.lexer.next.type not in ("CLOSE_BRA", "EOF"):
+            if Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
+            elif Parser.lexer.next.type == "VAR":
+                fields.append(Parser.parse_var_declaration())
+            else:
+                raise Exception(f"[Parser] Esperado 'local' ou 'end' em struct")
+
+        if Parser.lexer.next.type != "CLOSE_BRA":
+            raise Exception("[Parser] Esperado 'end'")
+        Parser.lexer.select_next()
+
+        return StructDec(None, [Identifier(name)] + fields)
 
     @staticmethod
     def parse_func_declaration():
@@ -227,12 +255,14 @@ class Parser:
         name = Parser.lexer.next.value
         Parser.lexer.select_next()
 
+        if Parser.lexer.next.type != "IDEN":
+            raise Exception("[Parser] Esperado tipo da variável")
         var_type = Parser.lexer.next.value
-        if var_type not in ("number", "string", "boolean"):
-            raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
         Parser.lexer.select_next()
 
         if Parser.lexer.next.type == "ASSIGN":
+            if var_type not in ("number", "string", "boolean"):
+                raise Exception("[Parser] Struct não pode ser inicializado na declaração")
             Parser.lexer.select_next()
             return VarDec(var_type, [Identifier(name), Parser.parse_bool_expression()])
         return VarDec(var_type, [Identifier(name)])
@@ -276,6 +306,18 @@ class Parser:
             elif Parser.lexer.next.type == "ASSIGN":
                 Parser.lexer.select_next()
                 return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
+            elif Parser.lexer.next.type == "DOT":
+                field_path = []
+                while Parser.lexer.next.type == "DOT":
+                    Parser.lexer.select_next()
+                    if Parser.lexer.next.type != "IDEN":
+                        raise Exception("[Parser] Esperado nome do campo após '.'")
+                    field_path.append(Identifier(Parser.lexer.next.value))
+                    Parser.lexer.select_next()
+                if Parser.lexer.next.type != "ASSIGN":
+                    raise Exception("[Parser] Esperado '=' após campo do struct")
+                Parser.lexer.select_next()
+                return StructAssign(name, field_path + [Parser.parse_bool_expression()])
             else:
                 raise Exception(f"[Parser] Esperado '=' ou '(' após '{name}'")
 
@@ -418,7 +460,7 @@ class Parser:
             Parser.lexer.select_next()
             if Parser.lexer.next.type == "OPEN_PAR":
                 name = tok.value
-                Parser.lexer.select_next()  # consume '('
+                Parser.lexer.select_next()  
                 args = []
                 if Parser.lexer.next.type != "CLOSE_PAR":
                     args.append(Parser.parse_bool_expression())
@@ -429,6 +471,15 @@ class Parser:
                     raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
                 Parser.lexer.select_next()
                 return FuncCall(name, args)
+            if Parser.lexer.next.type == "DOT":
+                field_path = []
+                while Parser.lexer.next.type == "DOT":
+                    Parser.lexer.select_next()
+                    if Parser.lexer.next.type != "IDEN":
+                        raise Exception("[Parser] Esperado nome do campo após '.'")
+                    field_path.append(Identifier(Parser.lexer.next.value))
+                    Parser.lexer.select_next()
+                return StructAccess(tok.value, field_path)
             return Identifier(tok.value)
 
         if tok.type == "OPEN_PAR":
