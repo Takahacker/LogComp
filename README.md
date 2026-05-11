@@ -7,24 +7,21 @@ This repository is monitored by Compiler Tester for automatic compilation status
 ![Diagrama Sintático](src/img/diagrama_sintatico5.png)
 
 ```ebnf
-PROGRAM = { STATEMENT } ;
-STATEMENT = ( "local", IDENTIFIER, ["=", BOOLEXPRESSION]
-            | IDENTIFIER, "=", BOOLEXPRESSION
-            | "print", "(", BOOLEXPRESSION, ")"
-            | "if", "(", BOOLEXPRESSION, ")", "then", BLOCK, ["else", BLOCK], "end"
-            | "while", "(", BOOLEXPRESSION, ")", "do", BLOCK, "end"
-            | ε
-            ), "\n" ;
-BLOCK = { STATEMENT } ;
-BOOLEXPRESSION = EXPRESSION, { ("and" | "or"), EXPRESSION } ;
+PROGRAM = { FUNCDEC | STATEMENT } ;
+FUNCDEC = "function", IDENTIFIER, "(",(| IDENTIFIER, TYPE, {",", IDENTIFIER, TYPE}),")",(TYPE|), "\n", {STATEMENT}, "end";
+BLOCK = "do", {STATEMENT, }, "end" ;
+STATEMENT = (|"local", IDENTIFIER, TYPE, ( | "=", BOOLEXPRESSION )|(IDENTIFIER, ("=", BOOLEXPRESSION | "(",(BOOLEXPRESSION, {",", BOOLEXPRESSION} | ),")")) | ("print", "(", BOOLEXPRESSION, ")") | "return", BOOLEXPRESSION |), "\n"| ("if", BOOLEXPRESSION, "then", {STATEMENT}, (|"else", {STATEMENT})), "end" | ("while", BOOLEXPRESSION, "do", {STATEMENT}, "end") | BLOCK;
+BOOLEXPRESSION = BOOLTERM, { "or", BOOLTERM } ;
+BOOLTERM = RELEXPRESSION, { "and", RELEXPRESSION } ;
+RELEXPRESSION = EXPRESSION, {("==" | "<" | ">"), EXPRESSION};
 EXPRESSION = TERM, { ("+" | "-"), TERM } ;
 TERM = FACTOR, { ("*" | "/"), FACTOR } ;
-FACTOR = INT | BOOL | STRING | IDENTIFIER | "(", BOOLEXPRESSION, ")" | "read", "(", ")" ;
-INT = DIGIT, {DIGIT} ;
-BOOL = "true" | "false" ;
-STRING = '"', {CHARACTER}, '"' ;
+FACTOR = NUMBER | STRING | BOOLEAN | IDENTIFIER, ("(",(BOOLEXPRESSION, {",", BOOLEXPRESSION} | ),")"|) | ("+" | "-" |"not"), FACTOR | "(", BOOLEXPRESSION, ")" | "read", "(", ")" ;
+TYPE = "number" | "string" | "boolean" ;
+NUMBER = DIGIT, {DIGIT} ;
 IDENTIFIER = LETTER, {LETTER | DIGIT | "_"} ;
-DIGIT = "0" | "1" | ... | "9" ;
-LETTER = "a" | "b" | ... | "z" | "A" | "B" | ... | "Z" ;
-
+STRING = '"..."' ;
+DIGIT = "0" | "..." | "9";
+LETTER = "a" | "..." | "z" | "A" | "..." | "Z" ;
+BOOLEAN = "true" | "false" ;
 ```

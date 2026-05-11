@@ -22,7 +22,7 @@ class Lexer:
         self.reserved = {
             "print", "if", "else", "while", "do", "end",
             "then", "and", "or", "not", "read", "local",
-            "true", "false", "return", "function"
+            "true", "false"
         }
 
     def select_next(self):
@@ -82,8 +82,6 @@ class Lexer:
                 "not": "NOT",
                 "read": "READ",
                 "local": "VAR",
-                "function": "FUNCTION",
-                "return": "RETURN",
             }
 
             if word in token_map:
@@ -134,7 +132,6 @@ class Lexer:
             '<': "LT",
             '>': "GT",
             '^': "XOR",
-            ',': "COMMA",
         }
 
         if char in simple_tokens:
@@ -145,6 +142,34 @@ class Lexer:
         raise Exception(f"[Lexer] Caractere inválido: {char}")
 
 
+class SymbolTable:
+    def __init__(self):
+        self.table = {}
+        self.offset = 0
+
+    def set_value(self, name, variable):
+        if name not in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
+
+        if self.table[name].type != variable.type:
+            raise Exception("[Semantic] Tipo incompatível")
+
+        variable.shift = self.table[name].shift
+        self.table[name] = variable
+
+    def get_value(self, name):
+        if name not in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
+        return self.table[name]
+
+    def create_variable(self, name, variable):
+        if name in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' já existe")
+        self.offset += 4
+        variable.shift = self.offset
+        self.table[name] = variable
+
+
 class Parser:
     lexer = None
 
@@ -152,85 +177,8 @@ class Parser:
     def parse_program():
         block = Block("BLOCK", [])
         while Parser.lexer.next.type != "EOF":
-            if Parser.lexer.next.type == "FUNCTION":
-                block.children.append(Parser.parse_func_declaration())
-            else:
-                block.children.append(Parser.parse_statement())
+            block.children.append(Parser.parse_statement())
         return block
-
-    @staticmethod
-    def parse_func_declaration():
-        Parser.lexer.select_next()  # consume 'function'
-
-        if Parser.lexer.next.type != "IDEN":
-            raise Exception("[Parser] Esperado nome da função após 'function'")
-        name = Parser.lexer.next.value
-        Parser.lexer.select_next()
-
-        if Parser.lexer.next.type != "OPEN_PAR":
-            raise Exception("[Parser] Esperado '(' após nome da função")
-        Parser.lexer.select_next()
-
-        args = []
-        if Parser.lexer.next.type != "CLOSE_PAR":
-          
-            if Parser.lexer.next.type != "IDEN":
-                raise Exception("[Parser] Esperado nome do parâmetro")
-            arg_name = Parser.lexer.next.value
-            Parser.lexer.select_next()
-
-            if Parser.lexer.next.type != "IDEN" or Parser.lexer.next.value not in ("number", "string", "boolean"):
-                raise Exception(f"[Parser] Tipo inválido para parâmetro '{arg_name}'")
-            arg_type = Parser.lexer.next.value
-            Parser.lexer.select_next()
-            args.append(VarDec(arg_type, [Identifier(arg_name)]))
-
-            
-            while Parser.lexer.next.type == "COMMA":
-                Parser.lexer.select_next()
-                if Parser.lexer.next.type != "IDEN":
-                    raise Exception("[Parser] Esperado nome do parâmetro após ','")
-                arg_name = Parser.lexer.next.value
-                Parser.lexer.select_next()
-
-                if Parser.lexer.next.type != "IDEN" or Parser.lexer.next.value not in ("number", "string", "boolean"):
-                    raise Exception(f"[Parser] Tipo inválido para parâmetro '{arg_name}'")
-                arg_type = Parser.lexer.next.value
-                Parser.lexer.select_next()
-                args.append(VarDec(arg_type, [Identifier(arg_name)]))
-
-        if Parser.lexer.next.type != "CLOSE_PAR":
-            raise Exception("[Parser] Esperado ')' em declaração de função")
-        Parser.lexer.select_next()
-
-        
-        ret_type = None
-        if Parser.lexer.next.type == "IDEN" and Parser.lexer.next.value in ("number", "string", "boolean"):
-            ret_type = Parser.lexer.next.value
-            Parser.lexer.select_next()
-
-        
-        body = Parser.parse_block()
-
-        if Parser.lexer.next.type != "CLOSE_BRA":
-            raise Exception("[Parser] Esperado 'end' após corpo da função")
-        Parser.lexer.select_next()
-
-        return Fundec(ret_type, [Identifier(name)] + args + [body])
-
-    @staticmethod
-    def parse_func_call(name):
-        Parser.lexer.select_next()  # consume '('
-        args = []
-        if Parser.lexer.next.type != "CLOSE_PAR":
-            args.append(Parser.parse_bool_expression())
-            while Parser.lexer.next.type == "COMMA":
-                Parser.lexer.select_next()
-                args.append(Parser.parse_bool_expression())
-        if Parser.lexer.next.type != "CLOSE_PAR":
-            raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
-        Parser.lexer.select_next()
-        return Funcall(name, args)
 
     @staticmethod
     def parse_block():
@@ -269,13 +217,8 @@ class Parser:
             name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
-            if Parser.lexer.next.type == "OPEN_PAR":
-                return Parser.parse_func_call(name)
-            elif Parser.lexer.next.type == "ASSIGN":
-                Parser.lexer.select_next()
-                return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
-            else:
-                raise Exception(f"[Parser] Esperado '=' ou '(' após '{name}'")
+            Parser.lexer.select_next()
+            return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
 
         if Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -288,15 +231,17 @@ class Parser:
             Parser.lexer.select_next()
             return Print("PRINT", [expr])
 
-        if Parser.lexer.next.type == "RETURN":
-            Parser.lexer.select_next()
-            return Return("RETURN", [Parser.parse_bool_expression()])
-
         if Parser.lexer.next.type == "IF":
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'if'")
             Parser.lexer.select_next()
 
             cond = Parser.parse_bool_expression()
 
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' em condição do 'if'")
+            Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_IF_BRA":
                 raise Exception("[Parser] Esperado 'then'")
             Parser.lexer.select_next()
@@ -326,9 +271,15 @@ class Parser:
 
         if Parser.lexer.next.type == "WHILE":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após 'while'")
+            Parser.lexer.select_next()
 
             cond = Parser.parse_bool_expression()
 
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' em condição do 'while'")
+            Parser.lexer.select_next()
             if Parser.lexer.next.type != "OPEN_BRA":
                 raise Exception("[Parser] Esperado 'do'")
             Parser.lexer.select_next()
@@ -339,7 +290,7 @@ class Parser:
             Parser.lexer.select_next()
             return While("WHILE", [cond, body])
 
-        raise Exception(f"[Parser] Statement inválido: token '{Parser.lexer.next.type}'")
+        raise Exception("[Parser] Statement inválido")
 
     @staticmethod
     def parse_bool_expression():
@@ -414,8 +365,6 @@ class Parser:
 
         if tok.type == "IDEN":
             Parser.lexer.select_next()
-            if Parser.lexer.next.type == "OPEN_PAR":
-                return Parser.parse_func_call(tok.value)
             return Identifier(tok.value)
 
         if tok.type == "OPEN_PAR":
@@ -448,7 +397,7 @@ class Parser:
             Parser.lexer.select_next()
             return Read("READ")
 
-        raise Exception(f"[Parser] Fator inválido: token '{tok.type}'")
+        raise Exception("[Parser] Fator inválido")
 
     @staticmethod
     def run(code):

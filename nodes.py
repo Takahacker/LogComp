@@ -41,6 +41,40 @@ class Variable:
         self.value = value
         self.type = var_type
         self.shift = 0
+        self.is_func = False
+
+
+class SymbolTable:
+    def __init__(self, parent=None):
+        self.table = {}
+        self.offset = 0
+        self.parent = parent
+
+    def set_value(self, name, variable):
+        if name in self.table:
+            if self.table[name].type != variable.type:
+                raise Exception("[Semantic] Tipo incompatível")
+            variable.shift = self.table[name].shift
+            self.table[name] = variable
+            return
+        if self.parent is not None:
+            self.parent.set_value(name, variable)
+            return
+        raise Exception(f"[Semantic] Variável '{name}' não definida")
+
+    def get_value(self, name):
+        if name in self.table:
+            return self.table[name]
+        if self.parent is not None:
+            return self.parent.get_value(name)
+        raise Exception(f"[Semantic] Variável '{name}' não definida")
+
+    def create_variable(self, name, variable):
+        if name in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' já existe")
+        self.offset += 4
+        variable.shift = self.offset
+        self.table[name] = variable
 
 
 class Node:
@@ -69,7 +103,20 @@ class Block(Node):
 
     def evaluate(self, symbol_table):
         for child in self.children:
-            child.evaluate(symbol_table)
+            if isinstance(child, Return):
+                return child.evaluate(symbol_table)
+            elif isinstance(child, Block):
+                new_st = SymbolTable(parent=symbol_table)
+                result = child.evaluate(new_st)
+                if result is not None:
+                    return result
+            elif isinstance(child, (If, While)):
+                result = child.evaluate(symbol_table)
+                if result is not None:
+                    return result
+            else:
+                child.evaluate(symbol_table)
+        return None
 
     def generate(self, symbol_table):
         for child in self.children:
@@ -300,9 +347,13 @@ class If(Node):
         if cond.type != "bool":
             raise Exception(f"[Semantic] Condição do 'if' deve ser bool, recebido '{cond.type}'")
         if cond.value:
-            self.children[1].evaluate(symbol_table)
+            result = self.children[1].evaluate(symbol_table)
+            if result is not None:
+                return result
         elif len(self.children) > 2:
-            self.children[2].evaluate(symbol_table)
+            result = self.children[2].evaluate(symbol_table)
+            if result is not None:
+                return result
 
     def generate(self, symbol_table):
         uid = self.id
@@ -331,7 +382,9 @@ class While(Node):
                 raise Exception(f"[Semantic] Condição do 'while' deve ser bool, recebido '{cond.type}'")
             if not cond.value:
                 break
-            self.children[1].evaluate(symbol_table)
+            result = self.children[1].evaluate(symbol_table)
+            if result is not None:
+                return result
 
     def generate(self, symbol_table):
         uid = self.id
@@ -377,10 +430,14 @@ class VarDec(Node):
                     f"[Semantic] Tipo incompatível na declaração de '{name}': "
                     f"esperado '{var_type}', recebido '{initial_value.type}'"
                 )
-            symbol_table.create_variable(name, initial_value)
+            var = Variable(initial_value.value, initial_value.type)
+            var.is_func = False
+            symbol_table.create_variable(name, var)
         else:
             defaults = {"int": Variable(0, "int"), "str": Variable("", "str"), "bool": Variable(False, "bool")}
-            symbol_table.create_variable(name, defaults[expected_type])
+            var = defaults[expected_type]
+            var.is_func = False
+            symbol_table.create_variable(name, var)
 
     def generate(self, symbol_table):
         name = self.children[0].value
@@ -416,6 +473,103 @@ class StringVal(Node):
 
     def evaluate(self, symbol_table):
         return Variable(self.value, "str")
+
+    def generate(self, symbol_table):
+        pass
+
+
+class Fundec(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+    
+        root = symbol_table
+        while root.parent is not None:
+            root = root.parent
+        func_name = self.children[0].value
+        var = Variable(self, "func")
+        var.is_func = True
+        root.create_variable(func_name, var)
+
+    def generate(self, symbol_table):
+        pass
+
+
+class Funcall(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        func_name = self.value
+        func_var = symbol_table.get_value(func_name)
+
+        if not func_var.is_func:
+            raise Exception(f"[Semantic] '{func_name}' não é uma função")
+
+        func_dec = func_var.value  
+        
+        expected_args = func_dec.children[1:-1]
+
+        if len(self.children) != len(expected_args):
+            raise Exception(
+                f"[Semantic] Função '{func_name}' espera {len(expected_args)} "
+                f"argumento(s), recebeu {len(self.children)}"
+            )
+
+        
+        root = symbol_table
+        while root.parent is not None:
+            root = root.parent
+        new_st = SymbolTable(parent=root)
+
+        type_map = {"number": "int", "string": "str", "boolean": "bool"}
+
+        for arg_dec, arg_expr in zip(expected_args, self.children):
+            arg_name = arg_dec.children[0].value
+            expected_type = type_map[arg_dec.value]
+            arg_val = arg_expr.evaluate(symbol_table)
+
+            if arg_val.type != expected_type:
+                raise Exception(
+                    f"[Semantic] Argumento '{arg_name}' de '{func_name}': "
+                    f"esperado '{arg_dec.value}', recebido '{arg_val.type}'"
+                )
+
+            var = Variable(arg_val.value, arg_val.type)
+            new_st.create_variable(arg_name, var)
+
+        body = func_dec.children[-1]
+        result = body.evaluate(new_st)
+
+        ret_type_str = func_dec.value  
+
+        if ret_type_str is None:
+            return None
+
+        expected_ret_type = type_map[ret_type_str]
+
+        if result is None:
+            raise Exception(f"[Semantic] Função '{func_name}' não retornou valor (esperado '{ret_type_str}')")
+
+        if result.type != expected_ret_type:
+            raise Exception(
+                f"[Semantic] Tipo de retorno incorreto em '{func_name}': "
+                f"esperado '{ret_type_str}', recebido '{result.type}'"
+            )
+
+        return result
+
+    def generate(self, symbol_table):
+        pass
+
+
+class Return(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        return self.children[0].evaluate(symbol_table)
 
     def generate(self, symbol_table):
         pass
