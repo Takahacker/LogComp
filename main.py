@@ -147,7 +147,6 @@ class Lexer:
 
 class Parser:
     lexer = None
-    _current_iden = None
 
     @staticmethod
     def parse_program():
@@ -220,21 +219,6 @@ class Parser:
         return FuncDec(ret_type, [Identifier(name)] + args + [body])
 
     @staticmethod
-    def parse_func_call():
-        name = Parser._current_iden
-        Parser.lexer.select_next()  # consume '('
-        args = []
-        if Parser.lexer.next.type != "CLOSE_PAR":
-            args.append(Parser.parse_bool_expression())
-            while Parser.lexer.next.type == "COMMA":
-                Parser.lexer.select_next()
-                args.append(Parser.parse_bool_expression())
-        if Parser.lexer.next.type != "CLOSE_PAR":
-            raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
-        Parser.lexer.select_next()
-        return FuncCall(name, args)
-
-    @staticmethod
     def parse_var_declaration():
         Parser.lexer.select_next()  # consume 'local'
 
@@ -274,17 +258,26 @@ class Parser:
             return Parser.parse_var_declaration()
 
         if Parser.lexer.next.type == "IDEN":
-            Parser._current_iden = Parser.lexer.next.value
+            name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
             if Parser.lexer.next.type == "OPEN_PAR":
-                return Parser.parse_func_call()
+                Parser.lexer.select_next()  # consume '('
+                args = []
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    args.append(Parser.parse_bool_expression())
+                    while Parser.lexer.next.type == "COMMA":
+                        Parser.lexer.select_next()
+                        args.append(Parser.parse_bool_expression())
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
+                Parser.lexer.select_next()
+                return FuncCall(name, args)
             elif Parser.lexer.next.type == "ASSIGN":
-                name = Parser._current_iden
                 Parser.lexer.select_next()
                 return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
             else:
-                raise Exception(f"[Parser] Esperado '=' ou '(' após '{Parser._current_iden}'")
+                raise Exception(f"[Parser] Esperado '=' ou '(' após '{name}'")
 
         if Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -424,8 +417,18 @@ class Parser:
         if tok.type == "IDEN":
             Parser.lexer.select_next()
             if Parser.lexer.next.type == "OPEN_PAR":
-                Parser._current_iden = tok.value
-                return Parser.parse_func_call()
+                name = tok.value
+                Parser.lexer.select_next()  # consume '('
+                args = []
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    args.append(Parser.parse_bool_expression())
+                    while Parser.lexer.next.type == "COMMA":
+                        Parser.lexer.select_next()
+                        args.append(Parser.parse_bool_expression())
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    raise Exception(f"[Parser] Esperado ')' em chamada de '{name}'")
+                Parser.lexer.select_next()
+                return FuncCall(name, args)
             return Identifier(tok.value)
 
         if tok.type == "OPEN_PAR":
