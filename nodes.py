@@ -68,6 +68,49 @@ class IntVal(Node):
         return Variable(self.value, "int")
 
 
+class FloatVal(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        return Variable(self.value, "float")
+
+
+class CastOp(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        operand = self.children[0].evaluate(symbol_table)
+        target = self.value
+
+        if target == "number":
+            if operand.type == "int":
+                return Variable(operand.value, "int")
+            if operand.type == "float":
+                return Variable(round(operand.value), "int")
+            raise Exception(f"[Semantic] Não é possível converter '{operand.type}' para 'number'")
+
+        if target == "float":
+            if operand.type == "float":
+                return Variable(operand.value, "float")
+            if operand.type == "int":
+                return Variable(float(operand.value), "float")
+            raise Exception(f"[Semantic] Não é possível converter '{operand.type}' para 'float'")
+
+        if target == "string":
+            if operand.type == "bool":
+                return Variable("true" if operand.value else "false", "str")
+            return Variable(str(operand.value), "str")
+
+        if target == "boolean":
+            if operand.type == "bool":
+                return Variable(operand.value, "bool")
+            raise Exception(f"[Semantic] Não é possível converter '{operand.type}' para 'boolean'")
+
+        raise Exception(f"[Semantic] Tipo de cast desconhecido: '{target}'")
+
+
 class BinOp(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
@@ -76,67 +119,73 @@ class BinOp(Node):
         left = self.children[0].evaluate(symbol_table)
         right = self.children[1].evaluate(symbol_table)
 
+        numeric = ("int", "float")
+
         if self.value == "PLUS":
-            if left.type == "int" and right.type == "int":
+            if left.type in numeric and right.type in numeric:
+                if left.type == "float" or right.type == "float":
+                    return Variable(float(left.value) + float(right.value), "float")
                 return Variable(left.value + right.value, "int")
-            else:
-                raise Exception(f"[Semantic] Operação '+' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação '+' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "MINUS":
-            if left.type == "int" and right.type == "int":
+            if left.type in numeric and right.type in numeric:
+                if left.type == "float" or right.type == "float":
+                    return Variable(float(left.value) - float(right.value), "float")
                 return Variable(left.value - right.value, "int")
-            else:
-                raise Exception(f"[Semantic] Operação '-' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação '-' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "MULT":
-            if left.type == "int" and right.type == "int":
+            if left.type in numeric and right.type in numeric:
+                if left.type == "float" or right.type == "float":
+                    return Variable(float(left.value) * float(right.value), "float")
                 return Variable(left.value * right.value, "int")
-            else:
-                raise Exception(f"[Semantic] Operação '*' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação '*' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "XOR":
             if left.type == "int" and right.type == "int":
                 return Variable(left.value ^ right.value, "int")
-            else:
-                raise Exception(f"[Semantic] Operação '^' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação '^' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "DIV":
-            if left.type == "int" and right.type == "int":
-                if right.value == 0:
+            if left.type in numeric and right.type in numeric:
+                if float(right.value) == 0:
                     raise Exception("[Semantic] division by zero")
+                if left.type == "float" or right.type == "float":
+                    return Variable(float(left.value) / float(right.value), "float")
                 return Variable(left.value // right.value, "int")
-            else:
-                raise Exception(f"[Semantic] Operação '/' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação '/' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "AND":
             if left.type == "bool" and right.type == "bool":
                 return Variable(left.value and right.value, "bool")
-            else:
-                raise Exception(f"[Semantic] Operação 'and' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação 'and' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "OR":
             if left.type == "bool" and right.type == "bool":
                 return Variable(left.value or right.value, "bool")
-            else:
-                raise Exception(f"[Semantic] Operação 'or' não suportada entre tipos {left.type} e {right.type}")
+            raise Exception(f"[Semantic] Operação 'or' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "EQ":
             if left.type == right.type:
                 return Variable(left.value == right.value, "bool")
-            else:
-                raise Exception(f"[Semantic] Operação '==' não suportada entre tipos {left.type} e {right.type}")
+            if left.type in numeric and right.type in numeric:
+                return Variable(float(left.value) == float(right.value), "bool")
+            raise Exception(f"[Semantic] Operação '==' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "LT":
             if left.type == right.type:
                 return Variable(left.value < right.value, "bool")
-            else:
-                raise Exception(f"[Semantic] Operação '<' não suportada entre tipos {left.type} e {right.type}")
+            if left.type in numeric and right.type in numeric:
+                return Variable(float(left.value) < float(right.value), "bool")
+            raise Exception(f"[Semantic] Operação '<' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "GT":
             if left.type == right.type:
                 return Variable(left.value > right.value, "bool")
-            else:
-                raise Exception(f"[Semantic] Operação '>' não suportada entre tipos {left.type} e {right.type}")
+            if left.type in numeric and right.type in numeric:
+                return Variable(float(left.value) > float(right.value), "bool")
+            raise Exception(f"[Semantic] Operação '>' não suportada entre tipos {left.type} e {right.type}")
 
         elif self.value == "CONCAT":
             def to_str(v):
@@ -158,7 +207,9 @@ class UnOp(Node):
         if self.value == "PLUS":
             return Variable(operand.value, operand.type)
         elif self.value == "MINUS":
-            return Variable(-operand.value, "int")
+            if operand.type not in ("int", "float"):
+                raise Exception(f"[Semantic] Operação unária '-' não suportada para tipo '{operand.type}'")
+            return Variable(-operand.value, operand.type)
         elif self.value == "NOT":
             if operand.type != "bool":
                 raise Exception(f"[Semantic] Operação 'not' não suportada para tipo '{operand.type}'")
@@ -211,7 +262,7 @@ class VarDec(Node):
         name = self.children[0].value
         var_type = self.value  # "number" or "string"
 
-        type_map = {"number": "int", "string": "str", "boolean": "bool"}
+        type_map = {"number": "int", "float": "float", "string": "str", "boolean": "bool"}
         expected_type = type_map[var_type]
 
         if len(self.children) == 2:
@@ -223,7 +274,10 @@ class VarDec(Node):
                 )
             symbol_table.create_variable(name, initial_value)
         else:
-            defaults = {"int": Variable(0, "int"), "str": Variable("", "str"), "bool": Variable(False, "bool")}
+            defaults = {
+                "int": Variable(0, "int"), "float": Variable(0.0, "float"),
+                "str": Variable("", "str"), "bool": Variable(False, "bool"),
+            }
             symbol_table.create_variable(name, defaults[expected_type])
 
 

@@ -83,10 +83,14 @@ class Lexer:
                 "not": "NOT",
                 "read": "READ",
                 "local": "VAR",
+                "number": "TYPE",
+                "float": "TYPE",
+                "string": "TYPE",
+                "boolean": "TYPE",
             }
 
             if word in token_map:
-                self.next = Token(token_map[word])
+                self.next = Token(token_map[word], word)
             else:
                 self.next = Token("IDEN", word)
             return
@@ -97,7 +101,14 @@ class Lexer:
             while self.position < len(self.source) and self.source[self.position].isdigit():
                 self.position += 1
 
-            self.next = Token("INT", int(self.source[start:self.position]))
+            if (self.position < len(self.source) and self.source[self.position] == '.' and
+                    self.position + 1 < len(self.source) and self.source[self.position + 1].isdigit()):
+                self.position += 1  # consume '.'
+                while self.position < len(self.source) and self.source[self.position].isdigit():
+                    self.position += 1
+                self.next = Token("FLOAT", float(self.source[start:self.position]))
+            else:
+                self.next = Token("INT", int(self.source[start:self.position]))
             return
 
         # OPERATORS
@@ -200,8 +211,10 @@ class Parser:
             name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
+            if Parser.lexer.next.type != "TYPE":
+                raise Exception(f"[Parser] Tipo inválido: '{Parser.lexer.next.value}'")
             var_type = Parser.lexer.next.value
-            if var_type not in ("number", "string", "boolean"):
+            if var_type not in ("number", "float", "string", "boolean"):
                 raise Exception(f"[Parser] Tipo inválido: '{var_type}'")
             Parser.lexer.select_next()
 
@@ -352,6 +365,10 @@ class Parser:
             Parser.lexer.select_next()
             return IntVal(tok.value)
 
+        if tok.type == "FLOAT":
+            Parser.lexer.select_next()
+            return FloatVal(tok.value)
+
         if tok.type == "BOOL":
             Parser.lexer.select_next()
             return BoolVal(tok.value)
@@ -366,6 +383,13 @@ class Parser:
 
         if tok.type == "OPEN_PAR":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type == "TYPE":
+                cast_type = Parser.lexer.next.value
+                Parser.lexer.select_next()
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    raise Exception("[Parser] Esperado ')' no cast")
+                Parser.lexer.select_next()
+                return CastOp(cast_type, [Parser.parse_factor()])
             node = Parser.parse_bool_expression()
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] Esperado ')'")
