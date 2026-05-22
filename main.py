@@ -60,6 +60,11 @@ class Lexer:
             self.position += 1
             return
 
+        if char == '!':
+            self.next = Token("FACT")
+            self.position += 1
+            return
+
         raise Exception(f"[Lexer] Caractere inválido: '{char}' na posição {self.position}")
 
 class Node:
@@ -108,6 +113,18 @@ class UnaOp(Node):
         else:
             raise Exception(f"Operador desconhecido: {self.value}")
 
+class FactOp(Node):
+    def __init__(self, children=[]):
+        super().__init__("FACT", children)
+    def evaluate(self):
+        val = self.children[0].evaluate()
+        if val < 0:
+            raise Exception("Fatorial de número negativo não é permitido")
+        result = 1
+        for i in range(2, val + 1):
+            result *= i
+        return result
+
 class Parser:
     lexer = None
 
@@ -143,6 +160,24 @@ class Parser:
 
 
     def parse_factor():
+        if Parser.lexer.next.type == "MINUS":
+            Parser.lexer.select_next()
+            return UnaOp("MINUS", [Parser.parse_factor()])
+
+        if Parser.lexer.next.type == "PLUS":
+            Parser.lexer.select_next()
+            return UnaOp("PLUS", [Parser.parse_factor()])
+
+        return Parser.parse_postfix()
+
+    def parse_postfix():
+        node = Parser.parse_primary()
+        while Parser.lexer.next.type == "FACT":
+            Parser.lexer.select_next()
+            node = FactOp([node])
+        return node
+
+    def parse_primary():
         if Parser.lexer.next.type == "INT":
             node = IntVal(Parser.lexer.next.value)
             Parser.lexer.select_next()
@@ -155,15 +190,6 @@ class Parser:
                 raise Exception("[Parser] Parêntese de fechamento esperado")
             Parser.lexer.select_next()
             return node
-
-        if Parser.lexer.next.type == "MINUS":
-            Parser.lexer.select_next()
-            return UnaOp("MINUS", [Parser.parse_factor()])
-
-        if Parser.lexer.next.type == "PLUS":
-            Parser.lexer.select_next()
-            return UnaOp("PLUS", [Parser.parse_factor()])
-
 
         raise Exception(f"[Parser] Token inesperado: {Parser.lexer.next.type}")
             
