@@ -119,7 +119,7 @@ class FactOp(Node):
     def evaluate(self):
         val = self.children[0].evaluate()
         if val < 0:
-            raise Exception("Fatorial de número negativo não é permitido")
+            raise Exception("[Semantic] Fatorial de número negativo não é permitido")
         result = 1
         for i in range(2, val + 1):
             result *= i
