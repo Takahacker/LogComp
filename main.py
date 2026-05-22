@@ -2,7 +2,18 @@ import re
 class PrePro:
     @staticmethod
     def filter(source):
-        source = re.sub(r'--.*', '\n', source)
+        source = re.sub(r'--.*', '', source)
+        constants = {}
+        filtered_lines = []
+        for line in source.split('\n'):
+            m = re.match(r'^\s*const\s+([A-Za-z_][A-Za-z0-9_]*)\s+(\S+)\s*$', line)
+            if m:
+                constants[m.group(1)] = m.group(2)
+            else:
+                filtered_lines.append(line)
+        source = '\n'.join(filtered_lines)
+        for name, value in constants.items():
+            source = re.sub(r'\b' + re.escape(name) + r'\b', value, source)
         return source
 class Token:
     def __init__(self, type="", value=0):
@@ -14,8 +25,7 @@ class Lexer:
         self.source = source
         self.position = 0
         self.next = None
-        self.palavras_reservadas = set()
-        self.palavras_reservadas.add("print")
+        self.palavras_reservadas = {"print", "imut"}
 
     def select_next(self):
         while self.position < len(self.source) and self.source[self.position].isspace():
@@ -34,7 +44,9 @@ class Lexer:
             identifier = self.source[start_pos:self.position]
 
             if identifier == "print":
-                    self.next = Token("PRINT")
+                self.next = Token("PRINT")
+            elif identifier == "imut":
+                self.next = Token("IMUT")
             else:
                 self.next = Token("IDEN", identifier)
             return
@@ -95,15 +107,17 @@ class Lexer:
 
 class SymbolTable:
     def __init__(self):
-        self.table = {}
-    
-    def set_value(self, name, value):
-        self.table[name] = value
-    
+        self.table = {}  # name -> (value, is_immutable)
+
+    def set_value(self, name, value, immutable=False):
+        if name in self.table and self.table[name][1]:
+            raise Exception(f"[Semantic] cannot change the value of '{name}'")
+        self.table[name] = (value, immutable)
+
     def get_value(self, name):
         if name not in self.table:
             raise Exception(f"[Semantic] Variável '{name}' não definida")
-        return self.table[name]
+        return self.table[name][0]
 class Node:
     def __init__(self, value, children=[]):
         self.value = value
@@ -125,6 +139,14 @@ class Assignment(Node):
         var_name = self.children[0].value
         var_value = self.children[1].evaluate()
         Parser.symbol_table.set_value(var_name, var_value)
+
+class ImmutableDeclaration(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+    def evaluate(self):
+        var_name = self.children[0].value
+        var_value = self.children[1].evaluate()
+        Parser.symbol_table.set_value(var_name, var_value, immutable=True)
 
 class NoOp(Node):
     def __init__(self, value, children =[]):
@@ -212,6 +234,17 @@ class Parser:
                 raise Exception("[Parser] Operador de atribuição esperado")
             Parser.lexer.select_next()
             return Assignment("ASSIGN", [Identifier(var_name), Parser.parse_expression()])
+
+        elif Parser.lexer.next.type == "IMUT":
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "IDEN":
+                raise Exception("[Parser] Identificador esperado após 'imut'")
+            var_name = Parser.lexer.next.value
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "ASSIGN":
+                raise Exception("[Parser] Variável imutável deve ser inicializada na declaração")
+            Parser.lexer.select_next()
+            return ImmutableDeclaration("IMUT", [Identifier(var_name), Parser.parse_expression()])
 
         elif Parser.lexer.next.type == "PRINT":
             Parser.lexer.select_next()
@@ -309,4 +342,3 @@ if __name__ == "__main__":
         ast.evaluate()
     except Exception as e:
         print(e)
-
