@@ -201,17 +201,25 @@ class Parser:
             Parser.lexer.select_next()
             params = []
             if Parser.lexer.next.type == "IDEN":
-                params.append(Parser.lexer.next.value)
+                param_name = Parser.lexer.next.value
                 Parser.lexer.select_next()
+                if Parser.lexer.next.type == "IDEN":   # optional type annotation
+                    Parser.lexer.select_next()
+                params.append(param_name)
                 while Parser.lexer.next.type == "COMMA":
                     Parser.lexer.select_next()
                     if Parser.lexer.next.type != "IDEN":
                         raise Exception("[Parser] Esperado parâmetro após ','")
-                    params.append(Parser.lexer.next.value)
+                    param_name = Parser.lexer.next.value
                     Parser.lexer.select_next()
+                    if Parser.lexer.next.type == "IDEN":   # optional type annotation
+                        Parser.lexer.select_next()
+                    params.append(param_name)
             if Parser.lexer.next.type != "CLOSE_PAR":
                 raise Exception("[Parser] Esperado ')' após parâmetros")
             Parser.lexer.select_next()
+            if Parser.lexer.next.type == "IDEN":   # optional return type
+                Parser.lexer.select_next()
             body = Parser.parse_block()
             if Parser.lexer.next.type != "CLOSE_BRA":
                 raise Exception("[Parser] Esperado 'end' após corpo da função")
