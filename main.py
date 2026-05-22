@@ -1,4 +1,5 @@
 import re
+import sys
 class PrePro:
     @staticmethod
     def filter(source):
@@ -334,7 +335,7 @@ class Parser:
         return Parser.parse_program()
 
 if __name__ == "__main__":
-    with open("teste.lua", "r") as f:
+    with open(sys.argv[1], "r") as f:
         code = f.read()
     try:
         code = PrePro.filter(code)
@@ -342,3 +343,4 @@ if __name__ == "__main__":
         ast.evaluate()
     except Exception as e:
         print(e)
+        sys.exit(1)
