@@ -1,39 +1,49 @@
 class Code:
     instructions = []
+    func_instructions = []
+    in_func = False
 
     @staticmethod
     def append(code: str) -> None:
-        Code.instructions.append(code)
+        if Code.in_func:
+            Code.func_instructions.append(code)
+        else:
+            Code.instructions.append(code)
 
     @staticmethod
     def dump(filename: str) -> None:
-        header = (
-            'section .data\n'
-            '  format_out: db "%d", 10, 0\n'
-            '  format_in: db "%d", 0\n'
-            '  scan_int: dd 0\n'
-            '\n'
-            'section .text\n'
-            '  extern printf\n'
-            '  extern scanf\n'
-            '  global _start\n'
-            '\n'
-            '_start:\n'
-            '  push ebp\n'
-            '  mov ebp, esp\n'
-        )
-        footer = (
-            '  mov esp, ebp\n'
-            '  pop ebp\n'
-            '  mov eax, 1\n'
-            '  xor ebx, ebx\n'
-            '  int 0x80\n'
-        )
         with open(filename, 'w') as file:
-            file.write(header)
+            file.write('section .data\n')
+            file.write('  format_out: db "%d", 10, 0\n')
+            file.write('  format_in: db "%d", 0\n')
+            file.write('  scan_int: dd 0\n')
+            file.write('\n')
+            file.write('section .text\n')
+            file.write('  extern printf\n')
+            file.write('  extern scanf\n')
+            file.write('  global _start\n')
+            file.write('\n')
+            if Code.func_instructions:
+                file.write("\n".join(Code.func_instructions))
+                file.write("\n\n")
+            file.write('_start:\n')
+            file.write('  push ebp\n')
+            file.write('  mov ebp, esp\n')
             file.write("\n".join(Code.instructions))
             file.write("\n")
-            file.write(footer)
+            file.write('  mov esp, ebp\n')
+            file.write('  pop ebp\n')
+            file.write('  mov eax, 1\n')
+            file.write('  xor ebx, ebx\n')
+            file.write('  int 0x80\n')
+
+
+def _mem_ref(var):
+    # shift > 0: local variable  → [ebp-shift]
+    # shift < 0: function param  → [ebp+(-shift)]
+    if var.shift < 0:
+        return f"[ebp+{-var.shift}]"
+    return f"[ebp-{var.shift}]"
 
 
 class Variable:
@@ -41,6 +51,32 @@ class Variable:
         self.value = value
         self.type = var_type
         self.shift = 0
+
+
+class SymbolTable:
+    def __init__(self):
+        self.table = {}
+        self.offset = 0
+
+    def set_value(self, name, variable):
+        if name not in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
+        if self.table[name].type != variable.type:
+            raise Exception("[Semantic] Tipo incompatível")
+        variable.shift = self.table[name].shift
+        self.table[name] = variable
+
+    def get_value(self, name):
+        if name not in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' não definida")
+        return self.table[name]
+
+    def create_variable(self, name, variable):
+        if name in self.table:
+            raise Exception(f"[Semantic] Variável '{name}' já existe")
+        self.offset += 4
+        variable.shift = self.offset
+        self.table[name] = variable
 
 
 class Node:
@@ -88,7 +124,7 @@ class Assignment(Node):
     def generate(self, symbol_table):
         self.children[1].generate(symbol_table)
         var = symbol_table.get_value(self.children[0].value)
-        Code.append(f"  mov [ebp-{var.shift}], eax")
+        Code.append(f"  mov {_mem_ref(var)}, eax")
 
 
 class NoOp(Node):
@@ -111,7 +147,7 @@ class Identifier(Node):
 
     def generate(self, symbol_table):
         var = symbol_table.get_value(self.value)
-        Code.append(f"  mov eax, [ebp-{var.shift}]")
+        Code.append(f"  mov eax, {_mem_ref(var)}")
 
 
 class Print(Node):
@@ -396,7 +432,7 @@ class VarDec(Node):
 
         if len(self.children) == 2:
             self.children[1].generate(symbol_table)
-            Code.append(f"  mov [ebp-{var.shift}], eax")
+            Code.append(f"  mov {_mem_ref(var)}, eax")
 
 
 class BoolVal(Node):
@@ -419,3 +455,103 @@ class StringVal(Node):
 
     def generate(self, symbol_table):
         pass
+
+
+class ReturnException(Exception):
+    def __init__(self, value):
+        self.value = value
+
+
+class FuncTable:
+    table = {}
+
+    @staticmethod
+    def declare(name, node):
+        FuncTable.table[name] = node
+
+    @staticmethod
+    def get(name):
+        if name not in FuncTable.table:
+            raise Exception(f"[Semantic] Função '{name}' não definida")
+        return FuncTable.table[name]
+
+
+class FuncDec(Node):
+    def __init__(self, name, params, body):
+        super().__init__(name, [body])
+        self.params = params  # list of param name strings
+
+    def evaluate(self, symbol_table):
+        FuncTable.declare(self.value, self)
+
+    def generate(self, symbol_table):
+        func_name = self.value
+        body = self.children[0]
+
+        func_st = SymbolTable()
+        # Parameters: first arg at [ebp+8], second at [ebp+12], ...
+        # Store with negative shift so _mem_ref maps to [ebp+|shift|]
+        for i, param in enumerate(self.params):
+            param_var = Variable(0, "int")
+            param_var.shift = -(8 + i * 4)
+            func_st.table[param] = param_var
+
+        Code.in_func = True
+        Code.append(f"{func_name}:")
+        Code.append(f"  push ebp")
+        Code.append(f"  mov ebp, esp")
+
+        body.generate(func_st)
+
+        # Implicit return for functions that fall off the end
+        Code.append(f"  mov esp, ebp")
+        Code.append(f"  pop ebp")
+        Code.append(f"  ret")
+        Code.in_func = False
+
+
+class FuncCall(Node):
+    def __init__(self, name, args):
+        super().__init__(name, args)
+
+    def evaluate(self, symbol_table):
+        func = FuncTable.get(self.value)
+        if len(func.params) != len(self.children):
+            raise Exception(
+                f"[Semantic] Função '{self.value}' espera {len(func.params)} "
+                f"argumentos, recebeu {len(self.children)}"
+            )
+        local_st = SymbolTable()
+        for i, param in enumerate(func.params):
+            arg_val = self.children[i].evaluate(symbol_table)
+            local_st.create_variable(param, arg_val)
+        try:
+            func.children[0].evaluate(local_st)
+            return Variable(0, "int")
+        except ReturnException as e:
+            return e.value
+
+    def generate(self, symbol_table):
+        # Push arguments right-to-left (cdecl): first arg ends up at [ebp+8]
+        for arg in reversed(self.children):
+            arg.generate(symbol_table)
+            Code.append(f"  push eax")
+        Code.append(f"  call {self.value}")
+        if self.children:
+            Code.append(f"  add esp, {len(self.children) * 4}")
+        # Return value is in eax
+
+
+class Return(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self, symbol_table):
+        val = self.children[0].evaluate(symbol_table)
+        raise ReturnException(val)
+
+    def generate(self, symbol_table):
+        self.children[0].generate(symbol_table)
+        Code.append(f"  mov esp, ebp")
+        Code.append(f"  pop ebp")
+        Code.append(f"  ret")

@@ -22,7 +22,7 @@ class Lexer:
         self.reserved = {
             "print", "if", "else", "while", "do", "end",
             "then", "and", "or", "not", "read", "local",
-            "true", "false"
+            "true", "false", "function", "return"
         }
 
     def select_next(self):
@@ -82,6 +82,8 @@ class Lexer:
                 "not": "NOT",
                 "read": "READ",
                 "local": "VAR",
+                "function": "FUNCTION",
+                "return": "RETURN",
             }
 
             if word in token_map:
@@ -132,6 +134,7 @@ class Lexer:
             '<': "LT",
             '>': "GT",
             '^': "XOR",
+            ',': "COMMA",
         }
 
         if char in simple_tokens:
@@ -142,32 +145,6 @@ class Lexer:
         raise Exception(f"[Lexer] Caractere inválido: {char}")
 
 
-class SymbolTable:
-    def __init__(self):
-        self.table = {}
-        self.offset = 0
-
-    def set_value(self, name, variable):
-        if name not in self.table:
-            raise Exception(f"[Semantic] Variável '{name}' não definida")
-
-        if self.table[name].type != variable.type:
-            raise Exception("[Semantic] Tipo incompatível")
-
-        variable.shift = self.table[name].shift
-        self.table[name] = variable
-
-    def get_value(self, name):
-        if name not in self.table:
-            raise Exception(f"[Semantic] Variável '{name}' não definida")
-        return self.table[name]
-
-    def create_variable(self, name, variable):
-        if name in self.table:
-            raise Exception(f"[Semantic] Variável '{name}' já existe")
-        self.offset += 4
-        variable.shift = self.offset
-        self.table[name] = variable
 
 
 class Parser:
@@ -213,10 +190,52 @@ class Parser:
                 return VarDec(var_type, [Identifier(name), Parser.parse_bool_expression()])
             return VarDec(var_type, [Identifier(name)])
 
+        if Parser.lexer.next.type == "FUNCTION":
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "IDEN":
+                raise Exception("[Parser] Esperado nome de função após 'function'")
+            name = Parser.lexer.next.value
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "OPEN_PAR":
+                raise Exception("[Parser] Esperado '(' após nome da função")
+            Parser.lexer.select_next()
+            params = []
+            if Parser.lexer.next.type == "IDEN":
+                params.append(Parser.lexer.next.value)
+                Parser.lexer.select_next()
+                while Parser.lexer.next.type == "COMMA":
+                    Parser.lexer.select_next()
+                    if Parser.lexer.next.type != "IDEN":
+                        raise Exception("[Parser] Esperado parâmetro após ','")
+                    params.append(Parser.lexer.next.value)
+                    Parser.lexer.select_next()
+            if Parser.lexer.next.type != "CLOSE_PAR":
+                raise Exception("[Parser] Esperado ')' após parâmetros")
+            Parser.lexer.select_next()
+            body = Parser.parse_block()
+            if Parser.lexer.next.type != "CLOSE_BRA":
+                raise Exception("[Parser] Esperado 'end' após corpo da função")
+            Parser.lexer.select_next()
+            return FuncDec(name, params, body)
+
+        if Parser.lexer.next.type == "RETURN":
+            Parser.lexer.select_next()
+            return Return("RETURN", [Parser.parse_bool_expression()])
+
         if Parser.lexer.next.type == "IDEN":
             name = Parser.lexer.next.value
             Parser.lexer.select_next()
 
+            if Parser.lexer.next.type == "OPEN_PAR":
+                Parser.lexer.select_next()
+                args = Parser.parse_func_args()
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    raise Exception("[Parser] Esperado ')' em chamada de função")
+                Parser.lexer.select_next()
+                return FuncCall(name, args)
+
+            if Parser.lexer.next.type != "ASSIGN":
+                raise Exception(f"[Parser] Esperado '=' após '{name}'")
             Parser.lexer.select_next()
             return Assignment("ASSIGN", [Identifier(name), Parser.parse_bool_expression()])
 
@@ -365,6 +384,13 @@ class Parser:
 
         if tok.type == "IDEN":
             Parser.lexer.select_next()
+            if Parser.lexer.next.type == "OPEN_PAR":
+                Parser.lexer.select_next()
+                args = Parser.parse_func_args()
+                if Parser.lexer.next.type != "CLOSE_PAR":
+                    raise Exception("[Parser] Esperado ')' em chamada de função")
+                Parser.lexer.select_next()
+                return FuncCall(tok.value, args)
             return Identifier(tok.value)
 
         if tok.type == "OPEN_PAR":
@@ -398,6 +424,16 @@ class Parser:
             return Read("READ")
 
         raise Exception("[Parser] Fator inválido")
+
+    @staticmethod
+    def parse_func_args():
+        args = []
+        if Parser.lexer.next.type != "CLOSE_PAR":
+            args.append(Parser.parse_bool_expression())
+            while Parser.lexer.next.type == "COMMA":
+                Parser.lexer.select_next()
+                args.append(Parser.parse_bool_expression())
+        return args
 
     @staticmethod
     def run(code):
