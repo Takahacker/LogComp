@@ -106,6 +106,8 @@ class CastOp(Node):
         if target == "boolean":
             if operand.type == "bool":
                 return Variable(operand.value, "bool")
+            if operand.type in ("int", "float"):
+                return Variable(operand.value != 0, "bool")
             raise Exception(f"[Semantic] Não é possível converter '{operand.type}' para 'boolean'")
 
         raise Exception(f"[Semantic] Tipo de cast desconhecido: '{target}'")
