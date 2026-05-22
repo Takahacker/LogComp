@@ -250,6 +250,7 @@ class For(Node):
         for i in range(start, end + 1):
             Parser.symbol_table.set_value(var_name, i)
             self.children[3].evaluate()
+        Parser.symbol_table.set_value(var_name, end + 1)
 
 
 class Read(Node):
