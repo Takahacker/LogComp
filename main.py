@@ -19,7 +19,7 @@ class Lexer:
         self.next = None
         self.palavras_reservadas = {
             "print", "if", "else", "while", "do", "end",
-            "then", "and", "or", "not", "read"
+            "then", "and", "or", "not", "read", "for"
         }
 
     def select_next(self):
@@ -51,6 +51,7 @@ class Lexer:
                     "or":    "OR",
                     "not":   "NOT",
                     "read":  "READ",
+                    "for":   "FOR",
                 }
                 self.next = Token(token_map[identifier])
             else:
@@ -81,7 +82,7 @@ class Lexer:
         simple_tokens = {
             '+': "PLUS", '-': "MINUS", '*': "MULT", '/': "DIV",
             '(': "OPEN_PAR", ')': "CLOSE_PAR",
-            '<': "LT", '>': "GT", '^': "XOR",
+            '<': "LT", '>': "GT", '^': "XOR", ',': "COMMA",
         }
         if char in simple_tokens:
             self.next = Token(simple_tokens[char])
@@ -227,6 +228,30 @@ class While(Node):
             self.children[1].evaluate()
 
 
+class IfExpr(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self):
+        if self.children[0].evaluate():
+            return self.children[1].evaluate()
+        else:
+            return self.children[2].evaluate()
+
+
+class For(Node):
+    def __init__(self, value, children=[]):
+        super().__init__(value, children)
+
+    def evaluate(self):
+        var_name = self.children[0].value
+        start = self.children[1].evaluate()
+        end = self.children[2].evaluate()
+        for i in range(start, end + 1):
+            Parser.symbol_table.set_value(var_name, i)
+            self.children[3].evaluate()
+
+
 class Read(Node):
     def __init__(self, value, children=[]):
         super().__init__(value, children)
@@ -334,6 +359,30 @@ class Parser:
                 Parser.lexer.select_next()
             return While("WHILE", [cond, body])
 
+        elif Parser.lexer.next.type == "FOR":
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "IDEN":
+                raise Exception("[Parser] identificador esperado após 'for'")
+            var_name = Parser.lexer.next.value
+            Parser.lexer.select_next()
+            if Parser.lexer.next.type != "ASSIGN":
+                raise Exception("[Parser] '=' esperado após variável do 'for'")
+            Parser.lexer.select_next()
+            start_expr = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "COMMA":
+                raise Exception("[Parser] ',' esperado após valor inicial do 'for'")
+            Parser.lexer.select_next()
+            end_expr = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "OPEN_BRA":
+                raise Exception("[Parser] 'do' esperado após range do 'for'")
+            Parser.lexer.select_next()
+            while Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
+            body = Parser.parse_block()
+            while Parser.lexer.next.type == "EOL":
+                Parser.lexer.select_next()
+            return For("FOR", [Identifier(var_name), start_expr, end_expr, body])
+
         elif Parser.lexer.next.type == "OPEN_BRA":
             Parser.lexer.select_next()
             while Parser.lexer.next.type == "EOL":
@@ -432,6 +481,22 @@ class Parser:
                 raise Exception("[Parser] ')' esperado após 'read('")
             Parser.lexer.select_next()
             return Read("READ")
+
+        if tok.type == "IF":
+            Parser.lexer.select_next()
+            cond = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "OPEN_IF_BRA":
+                raise Exception("[Parser] 'then' esperado na if-expression")
+            Parser.lexer.select_next()
+            true_expr = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "ELSE":
+                raise Exception("[Parser] 'else' esperado na if-expression")
+            Parser.lexer.select_next()
+            false_expr = Parser.parse_bool_expression()
+            if Parser.lexer.next.type != "CLOSE_BRA":
+                raise Exception("[Parser] 'end' esperado na if-expression")
+            Parser.lexer.select_next()
+            return IfExpr("IF_EXPR", [cond, true_expr, false_expr])
 
         if tok.type in ("EOL", "EOF"):
             raise Exception(f"[Parser] Expressão incompleta antes de {tok.type}")
